@@ -1,8 +1,11 @@
 // lib/screens/offer_ride_screen.dart
 
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 
 class OfferRideScreen extends StatefulWidget {
@@ -174,11 +177,52 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  void _onOffer() {
+  Future<void> _onOffer() async {
     if (!_formKey.currentState!.validate()) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ride offered!')),
+
+    final token = await TokenStorage.readToken();
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not authenticated')),
+      );
+      return;
+    }
+
+    final body = {
+      'pickupLocation': _pickupSelected,
+      'dropLocation':   _destSelected,
+      'date':           _selectedDate!.toIso8601String().split('T').first,
+      'time':           _selectedTime!.format(context),
+      'totalSeats':     _totalSeats,
+      'seatsAvailable': _availableSeats,
+      'luggage': {
+        'small':  _smallCount,
+        'medium': _mediumCount,
+        'large':  _largeCount,
+      },
+    };
+
+    final uri = Uri.parse('https://mujdriveride.shivamrajdubey.tech/rides/offer-ride');
+    final res = await http.post(
+      uri,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
     );
+
+    if (res.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ride offered successfully')),
+      );
+      Navigator.of(context).pop();
+    } else {
+      final msg = jsonDecode(res.body)['message'] ?? 'Error';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $msg')),
+      );
+    }
   }
 
   Widget _buildStepper(String label, int value, void Function(int) onDelta) {
@@ -227,7 +271,6 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
           ),
 
           DraggableScrollableSheet(
-            // ← changed initialChildSize to 0.9 so the form (through the Offer button) is visible immediately
             initialChildSize: 0.7,
             minChildSize: 0.3,
             maxChildSize: 0.9,
@@ -287,7 +330,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                           ),
                           validator: (_) =>
                               _pickupSelected == null ? 'Required' : null,
-                        ),
+                        ),  
                         onSelected: _addPickupMarker,
                       ),
                       gap,
@@ -301,7 +344,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                               .where((p) => p.toLowerCase().contains(t))
                               .where((p) => p != _pickupSelected)
                               .toList();
-                        },
+                        },  
                         fieldViewBuilder: (ctx, ctrl, fn, sb) => TextFormField(
                           controller: ctrl,
                           focusNode: fn,
@@ -387,7 +430,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                               ],
                             ),
                           ),
-                        ),
+                        ),  
                         const SizedBox(width: 12),
                         Expanded(
                           child: InputDecorator(
@@ -415,7 +458,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                                     _availableSeats = (_availableSeats + 1).clamp(0, _totalSeats);
                                   }),
                                 ),
-                              ],
+                              ],  
                             ),
                           ),
                         ),
@@ -426,7 +469,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                       Text(
                         'Luggage Space',
                         style: Theme.of(context).textTheme.bodyLarge,
-                      ),
+                      ),  
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -438,10 +481,10 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                               setState(() {
                                 _smallSelected = b;
                                 if (!b) _smallCount = 0;
-                              });
+                              });  
                             },
                             selectedColor: AppTheme.secondary.withOpacity(0.3),
-                          ),
+                          ),  
                           ChoiceChip(
                             label: const Text('M'),
                             selected: _mediumSelected,
@@ -449,10 +492,10 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                               setState(() {
                                 _mediumSelected = b;
                                 if (!b) _mediumCount = 0;
-                              });
+                              });  
                             },
                             selectedColor: AppTheme.secondary.withOpacity(0.3),
-                          ),
+                          ),  
                           ChoiceChip(
                             label: const Text('L'),
                             selected: _largeSelected,
@@ -460,7 +503,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                               setState(() {
                                 _largeSelected = b;
                                 if (!b) _largeCount = 0;
-                              });
+                              });  
                             },
                             selectedColor: AppTheme.secondary.withOpacity(0.3),
                           ),
@@ -478,7 +521,7 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                         ),
                       if (_mediumSelected)
                         _buildStepper(
-                          'Medium Bags',
+                          'Medium Bags',  
                           _mediumCount,
                           (d) => setState(() {
                             _mediumCount = (_mediumCount + d).clamp(0, 15);
@@ -502,13 +545,13 @@ class _OfferRideScreenState extends State<OfferRideScreen> {
                         onPressed: _onOffer,
                         child: const Text('Offer Ride'),
                       ),
-                    ],
+                    ],  
                   ),
                 ),
               ),
             ),
           ),
-        ],
+        ],  
       ),
     );
   }
