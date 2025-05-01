@@ -71,7 +71,7 @@ exports.registerStudent = asyncHandler(async (req, res) => {
 
   const studentId = await createStudent(name, email, password, phone, registration);
   await deleteOTPRecord(email);      // clean up
-  const token = generateToken({ userId: studentId, role: 'student' });
+  const token = generateToken({ userId: studentId, role: 'student',email:email });
   res.status(201).json({ message: 'Student registered', token });
 });
 
@@ -83,7 +83,7 @@ exports.loginStudent = asyncHandler(async (req, res) => {
     res.status(401);
     throw new Error('Invalid student credentials');
   }
-  const token = generateToken({ userId: student._id, role: 'student' });
+  const token = generateToken({ userId: student._id, role: 'student',email:student.email, });
   res.json({ message: 'Student logged in', token, name:student.name,phone:student.phone,registration:student.registration });
 });
 
