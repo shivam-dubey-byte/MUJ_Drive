@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 import 'package:muj_drive/screens/student_signup.dart';
 import 'package:muj_drive/screens/driver_signup.dart';
+import 'package:muj_drive/services/token_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   /// 'Student' or 'Driver'
@@ -26,13 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool    _loading = false;
   String? _error;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final pass  = _passwordController.text;
@@ -48,7 +42,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Choose endpoint based on userType
       final uri = Uri.parse(
         widget.userType == 'Student'
           ? 'https://mujdrive.shivamrajdubey.tech/auth/student/login'
@@ -62,27 +55,59 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (res.statusCode == 200) {
-        final body  = jsonDecode(res.body);
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+
+        // Required fields
         final token = body['token'] as String?;
-        if (token == null) {
-          throw Exception('Token not found in response');
+        final name  = body['name']  as String?;
+        final phone = body['phone'] as String?;
+
+        if (token == null || name == null || phone == null) {
+          throw Exception('Missing required fields in response');
         }
 
-        // Persist JWT
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('jwt', token);
+        // Save login info
+        await TokenStorage.writeToken(token);
+        await prefs.setString('email', email);
+        await prefs.setString('name', name);
+        await prefs.setString('phone', phone);
 
-        // Navigate to Home
+        if (widget.userType == 'Student') {
+          final regNo = body['registration'] as String?;
+          if (regNo == null) {
+            throw Exception('Missing registration number');
+          }
+          await prefs.setString('registration', regNo);
+        } else {
+          final vehicleDetails = body['vehicleDetails']   as String?;
+          final drivingLicense = body['drivingLicense']   as String?;
+          if (vehicleDetails == null || drivingLicense == null) {
+            throw Exception('Missing vehicle details or license');
+          }
+          await prefs.setString('vehicleDetails', vehicleDetails);
+          await prefs.setString('drivingLicense', drivingLicense);
+        }
+
+        // Navigate to home
         Navigator.pushReplacementNamed(context, '/home');
+
       } else {
         final msg = jsonDecode(res.body)['message'] ?? 'Login failed';
-        setState(() => _error = msg);
+        setState(() => _error = msg as String);
       }
     } catch (e) {
       setState(() => _error = 'Error: ${e.toString()}');
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -122,8 +147,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const SizedBox(height: 16),
-
-                          // Email field
                           TextFormField(
                             controller: _emailController,
                             decoration: const InputDecoration(
@@ -133,8 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 16),
-
-                          // Password field
                           TextFormField(
                             controller: _passwordController,
                             decoration: const InputDecoration(
@@ -143,8 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             obscureText: true,
                           ),
-
-                          // Forgot Password?
+                          const SizedBox(height: 16),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -154,10 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: const Text('Forgot Password?'),
                             ),
                           ),
-
                           const SizedBox(height: 24),
-
-                          // Login button
                           ElevatedButton(
                             onPressed: _loading ? null : _login,
                             child: _loading
@@ -169,8 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : const Text('Login'),
                           ),
-
-                          // Error message
                           if (_error != null) ...[
                             const SizedBox(height: 12),
                             Text(
@@ -179,10 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               textAlign: TextAlign.center,
                             ),
                           ],
-
                           const SizedBox(height: 16),
-
-                          // Toggle to Signup
                           TextButton(
                             onPressed: () =>
                                 setState(() => showSignup = true),

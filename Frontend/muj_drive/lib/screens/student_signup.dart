@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 import 'package:muj_drive/screens/otp_verification.dart';
@@ -60,15 +61,21 @@ class _StudentSignupFormState extends State<StudentSignupForm> {
         }),
       );
 
-      // treat 200 and 201 as success
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         final token = body['token'] as String?;
         if (token == null) {
           throw Exception('Signup succeeded but no token returned');
         }
-        // Save token and go home
+
+        // 3) Save token and all details
+        final prefs = await SharedPreferences.getInstance();
         await TokenStorage.writeToken(token);
+        await prefs.setString('email', email);
+        await prefs.setString('name', name);
+        await prefs.setString('registrationNo', regNo);
+        await prefs.setString('phone', phone);
+
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         final msg = jsonDecode(res.body)['message'] ?? 'Signup failed';
@@ -88,7 +95,6 @@ class _StudentSignupFormState extends State<StudentSignupForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          
           TextField(
             controller: _nameCtrl,
             decoration: const InputDecoration(

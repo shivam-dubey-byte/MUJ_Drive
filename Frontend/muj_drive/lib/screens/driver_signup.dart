@@ -1,9 +1,8 @@
-// lib/screens/driver_signup.dart
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 import 'package:muj_drive/screens/otp_verification.dart';
@@ -58,22 +57,31 @@ class _DriverSignupFormState extends State<DriverSignupForm> {
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'name':          name,
-          'email':         email,
-          'phone':         phone,
-          'vehicleDetails':vehicle,
-          'drivingLicense':license,
-          'password':pass,
+          'name':           name,
+          'email':          email,
+          'phone':          phone,
+          'vehicleDetails': vehicle,
+          'drivingLicense': license,
+          'password':       pass,
         }),
       );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final body  = jsonDecode(res.body) as Map<String, dynamic>;
         final token = body['token'] as String?;
         if (token == null) {
           throw Exception('Signup succeeded but no token returned');
         }
+
+        // 3) Save token and all details
+        final prefs = await SharedPreferences.getInstance();
         await TokenStorage.writeToken(token);
+        await prefs.setString('email', email);
+        await prefs.setString('name', name);
+        await prefs.setString('phone', phone);
+        await prefs.setString('vehicleDetails', vehicle);
+        await prefs.setString('drivingLicense', license);
+
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         final msg = (jsonDecode(res.body)['message'] as String?) 

@@ -1,4 +1,7 @@
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 
@@ -22,6 +25,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  String? _name;
+  String? _email;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _name  = prefs.getString('name')  ?? 'Guest User';
+      _email = prefs.getString('email') ?? '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,26 +97,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   _DashboardTile(
                     icon: Icons.directions_car,
                     label: 'Book a Ride',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/book-ride'),
+                    onTap: () => Navigator.pushNamed(context, '/book-ride'),
                   ),
                   _DashboardTile(
                     icon: Icons.search,
                     label: 'Find Ride',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/find-ride'),
+                    onTap: () => Navigator.pushNamed(context, '/find-ride'),
                   ),
                   _DashboardTile(
                     icon: Icons.local_taxi,
                     label: 'Offer Ride',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/offer-ride'),
+                    onTap: () => Navigator.pushNamed(context, '/offer-ride'),
                   ),
                   _DashboardTile(
                     icon: Icons.history,
                     label: 'My Rides',
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/my-rides'),
+                    onTap: () => Navigator.pushNamed(context, '/my-rides'),
                   ),
                 ],
               ),
@@ -128,12 +143,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              accountName: const Text('Guest User'),
-              accountEmail: null,
+              accountName: Text(_name!),
+              accountEmail: _email!.isNotEmpty ? Text(_email!) : null,
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white.withOpacity(0.9),
-                child:
-                    Icon(Icons.person, size: 40, color: AppTheme.primary),
+                child: Icon(Icons.person, size: 40, color: AppTheme.primary),
               ),
             ),
             Expanded(
