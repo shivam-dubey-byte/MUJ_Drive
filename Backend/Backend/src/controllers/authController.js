@@ -120,5 +120,5 @@ exports.loginDriver = asyncHandler(async (req, res) => {
     throw new Error('Invalid driver credentials');
   }
   const token = generateToken({ userId: driver._id, role: 'driver' });
-  res.json({ message: 'Driver logged in', token,name:driver.name,phone:driver.phone,drivingDetails:driver.vehicleDetails,drivingLicense:driver.drivingLicense });
+  res.json({ message: 'Driver logged in', token,name:driver.name,phone:driver.phone,vehicleDetails:driver.vehicleDetails,drivingLicense:driver.drivingLicense });
 });
