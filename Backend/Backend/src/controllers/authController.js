@@ -84,7 +84,7 @@ exports.loginStudent = asyncHandler(async (req, res) => {
     throw new Error('Invalid student credentials');
   }
   const token = generateToken({ userId: student._id, role: 'student' });
-  res.json({ message: 'Student logged in', token, name:student.name });
+  res.json({ message: 'Student logged in', token, name:student.name,phone:student.phone,registration:student.registration });
 });
 
 // — Driver routes —
@@ -120,5 +120,5 @@ exports.loginDriver = asyncHandler(async (req, res) => {
     throw new Error('Invalid driver credentials');
   }
   const token = generateToken({ userId: driver._id, role: 'driver' });
-  res.json({ message: 'Driver logged in', token,name:driver.name });
+  res.json({ message: 'Driver logged in', token,name:driver.name,phone:driver.phone,drivingDetails:driver.drivingDetails,drivingLicense:driver.drivingLicense });
 });
