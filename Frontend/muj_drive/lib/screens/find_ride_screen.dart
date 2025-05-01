@@ -1,9 +1,13 @@
 // lib/screens/find_ride_screen.dart
 
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
+import 'find_ride_results_screen.dart';
 
 class FindRideScreen extends StatefulWidget {
   const FindRideScreen({Key? key}) : super(key: key);
@@ -13,6 +17,8 @@ class FindRideScreen extends StatefulWidget {
 }
 
 class _FindRideScreenState extends State<FindRideScreen> {
+  static const _baseUrl = 'https://mujdriveride.shivamrajdubey.tech';
+
   late GoogleMapController _mapController;
   final _formKey = GlobalKey<FormState>();
 
@@ -164,6 +170,21 @@ class _FindRideScreenState extends State<FindRideScreen> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
+  void _searchRides() {
+    if (!_formKey.currentState!.validate()) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FindRideResultsScreen(
+          pickup: _pickupSelected!,
+          drop:   _destSelected!,
+          date:   _selectedDate!,
+          time:   _selectedTime!,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const gap = SizedBox(height: 16);
@@ -244,7 +265,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
                           final input = tv.text.trim().toLowerCase();
                           if (input.isEmpty) return const <String>[];
                           return _places.keys
-                              .where(((p) => p.toLowerCase().contains(input)))
+                              .where((p) => p.toLowerCase().contains(input))
                               .where((p) => p != _pickupSelected)
                               .toList();
                         },
@@ -293,7 +314,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
-                            _updateRoute();
+                            _searchRides();
                           }
                         },
                         child: const Text('Search'),

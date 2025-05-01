@@ -1,10 +1,11 @@
 // models/offeredRideModel.js
 
-const connectDB = require('../config/connectDB');
+const { getClient } = require('../config/connectDB');
 
 async function getOfferedRideCollection() {
-  const db = await connectDB();
-  return db.collection('offeredride');
+  const client = await getClient();
+  const ridesDb = client.db('rides');          // explicitly “rides”
+  return ridesDb.collection('offeredride');
 }
 
 module.exports = { getOfferedRideCollection };

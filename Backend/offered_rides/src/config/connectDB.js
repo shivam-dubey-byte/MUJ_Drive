@@ -1,22 +1,24 @@
 // config/connectDB.js
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const { MONGO_URI, DB_NAME }     = require('./config');
+const { MONGO_URI, DB_NAME }            = require('./config');
 
-let dbInstance = null;
+let _client = null;
 
-async function connectDB() {
-  if (dbInstance) return dbInstance;
-
-  const client = new MongoClient(MONGO_URI, {
-    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
-  });
-
-  await client.connect();
-  console.log('✅ MongoDB connected to', DB_NAME);
-
-  dbInstance = client.db(DB_NAME);
-  return dbInstance;
+async function getClient() {
+  if (!_client) {
+    _client = new MongoClient(MONGO_URI, {
+      serverApi: { version: ServerApiVersion.v1 }
+    });
+    await _client.connect();
+  }
+  return _client;
 }
 
-module.exports = connectDB;
+// Legacy: connects and returns the “rides” database
+async function connectDB() {
+  const client = await getClient();
+  return client.db(DB_NAME);
+}
+
+module.exports = { getClient, connectDB };
