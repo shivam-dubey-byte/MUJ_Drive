@@ -1,5 +1,3 @@
-// lib/screens/profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/theme/app_theme.dart';
@@ -37,13 +35,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _role = prefs.getString('role') ?? 'Student';
-      _nameCtrl.text    = prefs.getString('name') ?? '';
-      _emailCtrl.text   = prefs.getString('email') ?? '';
-      _phoneCtrl.text   = prefs.getString('phone') ?? '';
-      _regNoCtrl.text   = prefs.getString('registration') ?? '';
-      _vehicleCtrl.text = prefs.getString('vehicleDetails') ?? '';
-      _licenseCtrl.text = prefs.getString('drivingLicense') ?? '';
+      _role = prefs.getString('role') ?? '';
+      _nameCtrl.text    = prefs.getString('name')            ?? '';
+      _emailCtrl.text   = prefs.getString('email')           ?? '';
+      _phoneCtrl.text   = prefs.getString('phone')           ?? '';
+      _regNoCtrl.text   = prefs.getString('registration')  ?? '';
+      _vehicleCtrl.text = prefs.getString('vehicleDetails')  ?? '';
+      _licenseCtrl.text = prefs.getString('drivingLicense')  ?? '';
       _loading = false;
     });
   }
@@ -55,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('email', _emailCtrl.text.trim());
     await prefs.setString('phone', _phoneCtrl.text.trim());
     if (_role == 'Student') {
-      await prefs.setString('registration', _regNoCtrl.text.trim());
+      await prefs.setString('registrationNo', _regNoCtrl.text.trim());
     } else {
       await prefs.setString('vehicleDetails', _vehicleCtrl.text.trim());
       await prefs.setString('drivingLicense', _licenseCtrl.text.trim());
@@ -99,7 +97,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         padding: const EdgeInsets.all(24),
         child: Center(
-          // Card will size itself to its contents
           child: Card(
             elevation: 8,
             shape: RoundedRectangleBorder(
@@ -110,10 +107,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Form(
                 key: _formKey,
                 child: Column(
-                  // Wrap content tightly
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Name, email, phone always:
                     TextFormField(
                       controller: _nameCtrl,
                       decoration: const InputDecoration(
@@ -130,7 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email),
                       ),
-                      keyboardType: TextInputType.emailAddress,
                       validator: (v) =>
                           v!.trim().isEmpty ? 'Required' : null,
                     ),
@@ -141,11 +137,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         labelText: 'Phone Number',
                         prefixIcon: Icon(Icons.phone),
                       ),
-                      keyboardType: TextInputType.phone,
                       validator: (v) =>
                           v!.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
+
+                    // Role-specific fields:
                     if (_role == 'Student') ...[
                       TextFormField(
                         controller: _regNoCtrl,
@@ -173,6 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 16),
                     ],
+
                     ElevatedButton(
                       onPressed: _saveProfile,
                       child: const Text('Save Changes'),

@@ -1,7 +1,4 @@
-// lib/screens/login_screen.dart
-
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,27 +18,23 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool showSignup = false;
-  final _emailController    = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  bool    _loading = false;
+  final _emailCtrl    = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool    _loading    = false;
   String? _error;
 
   Future<void> _login() async {
-    final email = _emailController.text.trim();
-    final pass  = _passwordController.text;
-
+    final email = _emailCtrl.text.trim();
+    final pass  = _passwordCtrl.text;
     if (email.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Please enter both email & password');
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error   = null;
-    });
+    setState(() { _loading = true; _error = null; });
 
     try {
+      // choose endpoint
       final uri = Uri.parse(
         widget.userType == 'Student'
           ? 'https://mujdrive.shivamrajdubey.tech/auth/student/login'
@@ -50,70 +43,62 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final res = await http.post(
         uri,
-        headers: { 'Content-Type': 'application/json' },
-        body: jsonEncode({ 'email': email, 'password': pass }),
+        headers: {'Content-Type':'application/json'},
+        body: jsonEncode({'email': email, 'password': pass}),
       );
 
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-
-        // Required fields
+        final body  = jsonDecode(res.body) as Map<String, dynamic>;
         final token = body['token'] as String?;
         final name  = body['name']  as String?;
         final phone = body['phone'] as String?;
 
-        if (token == null || name == null || phone == null) {
-          throw Exception('Missing required fields in response');
+        if (token==null || name==null || phone==null) {
+          throw Exception('Missing required fields');
         }
 
         final prefs = await SharedPreferences.getInstance();
-        // Save login info
         await TokenStorage.writeToken(token);
-        await prefs.setString('email', email);
+
+        // **Save role so ProfileScreen can branch correctly**
+        await prefs.setString('role', widget.userType);
         await prefs.setString('name', name);
+        await prefs.setString('email', email);
         await prefs.setString('phone', phone);
 
         if (widget.userType == 'Student') {
-          final regNo = body['registration'] as String?;
-          if (regNo == null) {
-            throw Exception('Missing registration number');
-          }
-          await prefs.setString('registration', regNo);
+          // **Use the same key your ProfileScreen expects**
+          final regNo = (body['registrationNo'] ?? '') as String;
+          await prefs.setString('registrationNo', regNo);
         } else {
-          final vehicleDetails = body['vehicleDetails']   as String?;
-          final drivingLicense = body['drivingLicense']   as String?;
-          if (vehicleDetails == null || drivingLicense == null) {
-            throw Exception('Missing vehicle details or license');
-          }
-          await prefs.setString('vehicleDetails', vehicleDetails);
-          await prefs.setString('drivingLicense', drivingLicense);
+          final veh = (body['vehicleDetails'] ?? '') as String;
+          final lic = (body['drivingLicense'] ?? '') as String;
+          await prefs.setString('vehicleDetails', veh);
+          await prefs.setString('drivingLicense', lic);
         }
 
-        // Navigate to home
         Navigator.pushReplacementNamed(context, '/home');
-
       } else {
-        final msg = jsonDecode(res.body)['message'] ?? 'Login failed';
-        setState(() => _error = msg as String);
+        final msg = (jsonDecode(res.body)['message'] ?? 'Login failed') as String;
+        setState(() => _error = msg);
       }
     } catch (e) {
-      setState(() => _error = 'Error: ${e.toString()}');
+      setState(() => _error = 'Error: $e');
     } finally {
-      setState(() => _loading = false);
+      setState(() { _loading = false; });
     }
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isStudent = widget.userType == 'Student';
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -148,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _emailController,
+                            controller: _emailCtrl,
                             decoration: const InputDecoration(
                               labelText: 'Email',
                               prefixIcon: Icon(Icons.email),
@@ -157,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _passwordController,
+                            controller: _passwordCtrl,
                             decoration: const InputDecoration(
                               labelText: 'Password',
                               prefixIcon: Icon(Icons.lock),
@@ -168,9 +153,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(context, '/forgot-email');
-                              },
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/forgot-email'),
                               child: const Text('Forgot Password?'),
                             ),
                           ),
@@ -181,8 +165,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child: CircularProgressIndicator(
-                                        color: Colors.white),
+                                    child:
+                                        CircularProgressIndicator(color: Colors.white),
                                   )
                                 : const Text('Login'),
                           ),
@@ -196,9 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                           const SizedBox(height: 16),
                           TextButton(
-                            onPressed: () =>
-                                setState(() => showSignup = true),
-                            child: const Text('Don’t have an account? Sign up'),
+                            onPressed: () => setState(() => showSignup = true),
+                            child:
+                                const Text('Don’t have an account? Sign up'),
                           ),
                         ],
                       ),
