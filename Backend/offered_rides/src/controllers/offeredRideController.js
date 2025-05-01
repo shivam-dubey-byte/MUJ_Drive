@@ -1,7 +1,8 @@
-const asyncHandler = require('express-async-handler');
-const OfferedRide  = require('../models/offeredRideModel');
+// controllers/offeredRideController.js
 
-// POST /rides/offer-ride
+const asyncHandler = require('express-async-handler');
+const { getOfferedRideCollection } = require('../models/offeredRideModel');
+
 exports.offerRide = asyncHandler(async (req, res) => {
   const {
     pickupLocation,
@@ -10,10 +11,9 @@ exports.offerRide = asyncHandler(async (req, res) => {
     time,
     totalSeats,
     seatsAvailable,
-    luggage
+    luggage = {}
   } = req.body;
 
-  // extract email from token payload
   const { email } = req.user;
   if (!email) {
     res.status(401);
@@ -32,7 +32,8 @@ exports.offerRide = asyncHandler(async (req, res) => {
     throw new Error('Missing required fields');
   }
 
-  const ride = await OfferedRide.create({
+  // build document
+  const doc = {
     email,
     pickupLocation,
     dropLocation,
@@ -40,8 +41,16 @@ exports.offerRide = asyncHandler(async (req, res) => {
     time,
     totalSeats,
     seatsAvailable,
-    luggage:       luggage || {}
-  });
+    luggage,
+    createdAt:     new Date()
+  };
 
-  res.status(201).json({ message: 'Ride offered successfully', ride });
+  // insert into rides.offeredride
+  const col    = await getOfferedRideCollection();
+  const result = await col.insertOne(doc);
+
+  res.status(201).json({
+    message: 'Ride offered successfully',
+    ride: { _id: result.insertedId, ...doc }
+  });
 });

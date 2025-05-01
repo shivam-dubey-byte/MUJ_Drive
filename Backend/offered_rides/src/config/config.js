@@ -1,6 +1,7 @@
-require('dotenv').config();
+// config/config.js
 
 module.exports = {
-  JWT_SECRET: process.env.JWT_SECRET,
-  MONGO_URI:  process.env.MONGO_URI,
+  JWT_SECRET: 'mujtpc',
+  MONGO_URI:  'mongodb+srv://s1r9d11drive1:xMkoF5xHceNNNia9@mujdrive.kmz2jmj.mongodb.net/?retryWrites=true&w=majority&appName=mujdrive',
+  DB_NAME:    'rides'                // ← add this
 };
