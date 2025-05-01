@@ -1,39 +1,40 @@
-// lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 
+/// Positions the FAB at top-left, under the status bar.
+class TopLeftFabLocation extends FloatingActionButtonLocation {
+  final double marginX;
+  final double marginY;
+  const TopLeftFabLocation({this.marginX = 16, this.marginY = 32});
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry s) {
+    return Offset(marginX, s.minInsets.top + marginY);
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String? _token;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadToken();
-  }
-
-  Future<void> _loadToken() async {
-    final t = await TokenStorage.readToken();
-    setState(() => _token = t);
-  }
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // extend the gradient behind the AppBar
+      key: _scaffoldKey,
       extendBodyBehindAppBar: true,
+      drawer: _buildDrawer(),
       appBar: AppBar(
-        title: const Text('MUJ Drive'),
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        titleSpacing: 80.0,
+        title: const Text('MUJ Drive'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -56,45 +57,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Greeting
-            Text(
-              'Welcome!',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineMedium
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your session token:',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: Colors.white70),
-            ),
-            const SizedBox(height: 12),
-            // Token card
-            Card(
-              color: Colors.white.withOpacity(0.9),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  _token ?? 'No token found',
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 12,
-                    color: Colors.black87,
-                  ),
-                  textAlign: TextAlign.center,
+            const Padding(
+              padding: EdgeInsets.only(left: 52.0),
+              child: Text(
+                'Welcome!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            // Dashboard options
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
@@ -104,30 +78,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   _DashboardTile(
                     icon: Icons.directions_car,
                     label: 'Book a Ride',
-                    onTap: () {
-                      // TODO: Navigate to booking screen
-                    },
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/book-ride'),
+                  ),
+                  _DashboardTile(
+                    icon: Icons.search,
+                    label: 'Find Ride',
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/find-ride'),
+                  ),
+                  _DashboardTile(
+                    icon: Icons.local_taxi,
+                    label: 'Offer Ride',
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/offer-ride'),
                   ),
                   _DashboardTile(
                     icon: Icons.history,
                     label: 'My Rides',
-                    onTap: () {
-                      // TODO: Navigate to history
-                    },
-                  ),
-                  _DashboardTile(
-                    icon: Icons.person,
-                    label: 'Profile',
-                    onTap: () {
-                      // TODO: Navigate to profile
-                    },
-                  ),
-                  _DashboardTile(
-                    icon: Icons.settings,
-                    label: 'Settings',
-                    onTap: () {
-                      // TODO: Navigate to settings
-                    },
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/my-rides'),
                   ),
                 ],
               ),
@@ -135,6 +105,124 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        mini: true,
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.primary,
+        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        child: const Icon(Icons.menu),
+      ),
+      floatingActionButtonLocation:
+          const TopLeftFabLocation(marginX: 16, marginY: 32),
+    );
+  }
+
+  Drawer _buildDrawer() => Drawer(
+        child: Column(
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.primary, AppTheme.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              accountName: const Text('Guest User'),
+              accountEmail: null,
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white.withOpacity(0.9),
+                child:
+                    Icon(Icons.person, size: 40, color: AppTheme.primary),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _DrawerTile(
+                    icon: Icons.directions_car,
+                    label: 'Book a Ride',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/book-ride');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.search,
+                    label: 'Find Ride',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/find-ride');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.local_taxi,
+                    label: 'Offer Ride',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/offer-ride');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.history,
+                    label: 'My Rides',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/my-rides');
+                    },
+                  ),
+                  const Divider(),
+                  _DrawerTile(
+                    icon: Icons.person,
+                    label: 'Profile',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/profile');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: _DrawerTile(
+                icon: Icons.logout,
+                label: 'Logout',
+                isDestructive: true,
+                onTap: () async {
+                  await TokenStorage.clearToken();
+                  Navigator.pushReplacementNamed(context, '/');
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _DrawerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _DrawerTile({
+    Key? key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? Colors.redAccent : Colors.black87;
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(label, style: TextStyle(color: color)),
+      onTap: onTap,
+      dense: true,
     );
   }
 }
@@ -168,7 +256,10 @@ class _DashboardTile extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
