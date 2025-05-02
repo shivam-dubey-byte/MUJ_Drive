@@ -30,6 +30,8 @@ class _FindRideScreenState extends State<FindRideScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
 
+  bool _isLoading = false;  // ← loading flag
+
   static const CameraPosition _initialCamera = CameraPosition(
     target: LatLng(23.2599, 77.4126),
     zoom: 14,
@@ -170,19 +172,62 @@ class _FindRideScreenState extends State<FindRideScreen> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  void _searchRides() {
+  Future<void> _searchRides() async {
     if (!_formKey.currentState!.validate()) return;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FindRideResultsScreen(
-          pickup: _pickupSelected!,
-          drop:   _destSelected!,
-          date:   _selectedDate!,
-          time:   _selectedTime!,
-        ),
-      ),
-    );
+    final token = await TokenStorage.readToken();
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be logged in to search.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final body = {
+      'pickupLocation': _pickupSelected!,
+      'dropLocation':   _destSelected!,
+      'date':           _selectedDate!.toIso8601String().split('T').first,
+      'time':           _selectedTime!.format(context),
+    };
+
+    try {
+      final res = await http.post(
+        Uri.parse('$_baseUrl/rides/find-ride'),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (res.statusCode == 200) {
+        final data  = jsonDecode(res.body) as Map<String, dynamic>;
+        final rides = (data['rides'] as List).cast<Map<String, dynamic>>();
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FindRideResultsScreen(
+              pickup: _pickupSelected!,
+              drop:   _destSelected!,
+              date:   _selectedDate!,
+              time:   _selectedTime!,
+              rides:  rides,
+            ),
+          ),
+        );
+      } else {
+        final msg = jsonDecode(res.body)['message'] ?? 'Error ${res.statusCode}';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -325,6 +370,15 @@ class _FindRideScreenState extends State<FindRideScreen> {
               ),
             ),
           ),
+
+          // loading overlay
+          if (_isLoading)
+            Container(
+              color: Colors.black45,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
         ],
       ),
     );

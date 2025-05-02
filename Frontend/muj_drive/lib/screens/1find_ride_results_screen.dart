@@ -26,11 +26,9 @@ class FindRideResultsScreen extends StatelessWidget {
   }
 
   Widget _buildRideCard(BuildContext context, Map<String, dynamic> r) {
-    // parse date
     final dt = DateTime.parse(r['date'].toString());
     final dateStr = _formatDate(dt);
 
-    // robust time parsing
     final rawTime = (r['time'] as String).trim();
     TimeOfDay t;
     final ampmMatch = RegExp(r'^(\d{1,2})(?::(\d{2}))?\s*([AaPp][Mm])$');
@@ -118,10 +116,12 @@ class FindRideResultsScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.call, color: AppTheme.primary),
-                label: const Text('Call', style: TextStyle(color: AppTheme.primary)),
+                label:
+                    const Text('Call', style: TextStyle(color: AppTheme.primary)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: AppTheme.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -138,7 +138,8 @@ class FindRideResultsScreen extends StatelessWidget {
                 label: const Text('Book Ride', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -156,87 +157,108 @@ class FindRideResultsScreen extends StatelessWidget {
         title: const Text('Available Rides'),
         backgroundColor: AppTheme.primary,
       ),
-      body: Column(children: [
-        // Route widget
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Enhanced header with distinct pills for pickup & drop
         Container(
           margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-          ),
           child: Row(children: [
-            // Pickup dot + line + drop pin
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, size: 12, color: AppTheme.primary),
-                Container(width: 2, height: 36, color: Colors.grey.shade300),
-                Icon(Icons.location_on, size: 16, color: Colors.red),
-              ],
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.my_location, color: AppTheme.primary),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        pickup,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(pickup,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                const SizedBox(height: 8),
-                Text(drop,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        drop,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
+              ),
             ),
           ]),
         ),
 
-        // Elevated date/time bar
+        // date/time bar
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(children: [
-            const Icon(Icons.calendar_today, size: 20, color: AppTheme.primary),
-            const SizedBox(width: 8),
-            Text(_formatDate(date),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(width: 24),
-            const Icon(Icons.access_time, size: 20, color: AppTheme.primary),
-            const SizedBox(width: 8),
-            Text(time.format(context),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-          ]),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today, size: 20, color: Colors.black54),
+              const SizedBox(width: 6),
+              Text(_formatDate(date), style: const TextStyle(fontSize: 14)),
+              const SizedBox(width: 24),
+              const Icon(Icons.access_time, size: 20, color: Colors.black54),
+              const SizedBox(width: 6),
+              Text(time.format(context), style: const TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
 
         const SizedBox(height: 8),
         const Divider(height: 1),
 
-        // Results or 'no rides'
         Expanded(
           child: rides.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.not_listed_location, size: 48, color: Colors.black38),
-                    SizedBox(height: 12),
-                    Text('No rides found', style: TextStyle(fontSize: 16, color: Colors.black54)),
-                  ],
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.not_listed_location,
+                          size: 48, color: Colors.black38),
+                      SizedBox(height: 12),
+                      Text(
+                        'No rides found',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 8),
+                  itemCount: rides.length,
+                  itemBuilder: (_, i) => _buildRideCard(context, rides[i]),
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: rides.length,
-                itemBuilder: (_, i) => _buildRideCard(context, rides[i]),
-              ),
         ),
       ]),
     );
