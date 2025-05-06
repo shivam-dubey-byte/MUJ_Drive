@@ -6,6 +6,8 @@ const { connectDB } = require('./config/connectDB');  // ← destructured
 
 const offerRoutes  = require('./routes/offeredRideRoutes');
 const findRoutes   = require('./routes/findRideRoutes');
+const bookingRoutes= require('./routes/bookingRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -20,6 +22,12 @@ app.use('/rides', offerRoutes);
 
 // new find-ride endpoint
 app.use('/rides', findRoutes);
+
+app.use('/rides', bookingRoutes);
+
+// ── add notifications endpoint ──────────────────
+app.use('/notifications', notificationRoutes);
+// now GET  /notifications  and  PUT  /notifications/:id/read  will work
 
 // global error handler
 app.use((err, req, res, next) => {

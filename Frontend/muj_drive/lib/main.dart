@@ -11,6 +11,7 @@ import 'package:muj_drive/screens/find_ride_screen.dart';
 import 'package:muj_drive/screens/offer_ride_screen.dart';
 import 'package:muj_drive/screens/my_rides_screen.dart';
 import 'package:muj_drive/screens/profile_screen.dart';
+import 'package:muj_drive/screens/notification_screen.dart'; // ✅ added
 
 void main() => runApp(const MUJDriveApp());
 
@@ -25,13 +26,14 @@ class MUJDriveApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       initialRoute: '/',
       routes: {
-        '/':         (_) => const InitialScreen(),
-        '/home':     (_) => const HomeScreen(),
-        '/book-ride':(_) => const BookRideScreen(),
-        '/find-ride':(_) => const FindRideScreen(),
-        '/offer-ride':(_) => const OfferRideScreen(),
-        '/my-rides': (_) => const MyRidesScreen(),
-        '/profile':  (_) => const ProfileScreen(),
+        '/':           (_) => const InitialScreen(),
+        '/home':       (_) => const HomeScreen(),
+        '/book-ride':  (_) => const BookRideScreen(),
+        '/find-ride':  (_) => const FindRideScreen(),
+        '/offer-ride': (_) => const OfferRideScreen(),
+        '/my-rides':   (_) => const MyRidesScreen(),
+        '/profile':    (_) => const ProfileScreen(),
+        '/notifications': (_) => const NotificationScreen(), // ✅ added route
       },
       onGenerateRoute: (settings) {
         switch (settings.name) {

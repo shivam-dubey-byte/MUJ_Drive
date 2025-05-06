@@ -48,6 +48,7 @@ exports.findRides = asyncHandler(async (req, res) => {
       }
 
       return {
+        rideId: ride._id,
         pickupLocation: ride.pickupLocation,
         dropLocation:   ride.dropLocation,
         date:           ride.date,
