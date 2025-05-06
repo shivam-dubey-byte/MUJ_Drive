@@ -27,7 +27,6 @@ exports.requestRide = asyncHandler(async (req, res) => {
   const ride     = await ridesCol.findOne({ _id: new ObjectId(rideId) });
   if (!ride)                 { res.status(404); throw new Error('Ride not found'); }
 
-  // create booking (no seat change here)
   const bookingCol = await getBookingCollection();
   const bookingDoc = {
     rideId,
@@ -44,7 +43,6 @@ exports.requestRide = asyncHandler(async (req, res) => {
   };
   const { insertedId } = await bookingCol.insertOne(bookingDoc);
 
-  // in-app notification
   const notifCol = await getNotificationCollection();
   await notifCol.insertOne({
     userEmail: ride.email,
@@ -54,7 +52,6 @@ exports.requestRide = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the offerer
   const student = await findStudentByEmail(studentEmail);
   const studentName  = student?.name  || studentEmail;
   const studentPhone = student?.phone || 'N/A';
@@ -107,20 +104,18 @@ exports.listRequests = asyncHandler(async (req, res) => {
 });
 
 /**
- * 3) Student views their own bookings + status (now includes bookingId)
+ * 3) Student views their own bookings + status
  *    GET /rides/bookings
  */
 exports.listUserBookings = asyncHandler(async (req, res) => {
   const studentEmail = req.user.email;
   const bookingCol   = await getBookingCollection();
 
-  // fetch _id, rideId, status
   const docs = await bookingCol
     .find({ studentEmail })
     .project({ _id: 1, rideId: 1, status: 1 })
     .toArray();
 
-  // map to include bookingId field
   const bookings = docs.map(b => ({
     bookingId: b._id.toString(),
     rideId:    b.rideId,
@@ -133,7 +128,6 @@ exports.listUserBookings = asyncHandler(async (req, res) => {
 /**
  * 4) Offerer accepts a booking
  *    PUT /rides/:rideId/requests/:bookingId/accept
- *    → decrement seat here
  */
 exports.acceptRequest = asyncHandler(async (req, res) => {
   const { rideId, bookingId } = req.params;
@@ -141,7 +135,6 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
   const ridesCol              = await getOfferedRideCollection();
   const notifCol              = await getNotificationCollection();
 
-  // decrement seat atomically
   const rideResult = await ridesCol.findOneAndUpdate(
     { _id: new ObjectId(rideId), seatsAvailable: { $gt: 0 } },
     { $inc: { seatsAvailable: -1 } },
@@ -151,7 +144,6 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
     res.status(400); throw new Error('No seats available to accept');
   }
 
-  // mark booking accepted
   const r1 = await bookingCol.updateOne(
     { _id: new ObjectId(bookingId), rideId, status: 'requested' },
     { $set: { status: 'accepted', respondedAt: new Date() } }
@@ -160,9 +152,9 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
     res.status(404); throw new Error('Not found or already handled');
   }
 
-  // in-app notification for student
-  const ride    = rideResult.value;
   const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
+  const ride    = rideResult.value;
+
   const msg = `Your request for ride on ${ride.date.toDateString()} at ${ride.time} has been ACCEPTED.`;
   await notifCol.insertOne({
     userEmail: booking.studentEmail,
@@ -172,7 +164,6 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the student
   const offerer = await findStudentByEmail(booking.offererEmail);
   const name  = offerer?.name  || booking.offererEmail;
   const phone = offerer?.phone || 'N/A';
@@ -210,7 +201,6 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
   const ridesCol              = await getOfferedRideCollection();
   const notifCol              = await getNotificationCollection();
 
-  // mark booking rejected
   const r1 = await bookingCol.updateOne(
     { _id: new ObjectId(bookingId), rideId, status: 'requested' },
     { $set: { status: 'rejected', respondedAt: new Date() } }
@@ -219,11 +209,9 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
     res.status(404); throw new Error('Not found or already handled');
   }
 
-  // no seat change here
-
-  // in-app notification for student
   const ride    = await ridesCol.findOne({ _id: new ObjectId(rideId) });
   const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
+
   const msg = `Your request for ride on ${ride.date.toDateString()} at ${ride.time} was REJECTED.`;
   await notifCol.insertOne({
     userEmail: booking.studentEmail,
@@ -233,7 +221,6 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the student
   const offerer = await findStudentByEmail(booking.offererEmail);
   const name  = offerer?.name  || booking.offererEmail;
   const phone = offerer?.phone || 'N/A';
@@ -264,10 +251,12 @@ Feel free to search for another ride.
 /**
  * 6) Student withdraws a pending booking
  *    PUT /rides/:rideId/requests/:bookingId/cancel
+ *    → now sends detailed email
  */
 exports.cancelRequest = asyncHandler(async (req, res) => {
   const { rideId, bookingId } = req.params;
   const bookingCol            = await getBookingCollection();
+  const ridesCol              = await getOfferedRideCollection();
   const notifCol              = await getNotificationCollection();
 
   const booking = await bookingCol.findOne({
@@ -295,13 +284,21 @@ exports.cancelRequest = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the offerer
+  // detailed email to offerer
+  const ride    = await ridesCol.findOne({ _id: new ObjectId(rideId) });
+  const student = await findStudentByEmail(booking.studentEmail);
+  const name    = student?.name  || booking.studentEmail;
+  const phone   = student?.phone || 'N/A';
+
   await sendMail(
     booking.offererEmail,
-    'Ride Request Withdrawn',
+    '🔔 Ride Request Withdrawn',
     `Hello,
 
-${msg}
+${name} (${phone}) has withdrawn their request for your ride:
+
+• Route : ${ride.pickupLocation} → ${ride.dropLocation}
+• When : ${ride.date.toDateString()} at ${ride.time}
 
 – MUJ Drive`
   );
