@@ -17,16 +17,18 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
   static const _baseUrl = 'https://mujdriveride.shivamrajdubey.tech';
 
   bool _loading = true;
-  List<Map<String, dynamic>> _incomingRequests = [];
-  List<Map<String, dynamic>> _myBookings       = [];
+  List<dynamic> _incomingRequests = [];
+  List<dynamic> _activeBookings   = [];
+  List<dynamic> _pendingBookings  = [];
+  List<dynamic> _pastBookings     = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchAll();
+    _loadDashboard();
   }
 
-  Future<void> _fetchAll() async {
+  Future<void> _loadDashboard() async {
     setState(() => _loading = true);
     final token = await TokenStorage.readToken();
     if (token == null) {
@@ -35,143 +37,115 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
     }
 
     try {
-      // 1) Incoming requests for rides I offered
-      final reqRes = await http.get(
-        Uri.parse('$_baseUrl/rides/requests'),
+      final res = await http.get(
+        Uri.parse('$_baseUrl/rides/dashboard'),
         headers: {'Authorization': 'Bearer $token'},
       );
-      if (reqRes.statusCode == 200) {
-        final body = jsonDecode(reqRes.body) as Map<String, dynamic>? ?? {};
-        final list = (body['requests'] as List<dynamic>?) ?? [];
-        _incomingRequests = list.cast<Map<String, dynamic>>();
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        setState(() {
+          _incomingRequests = data['incomingRequests'] as List<dynamic>;
+          _activeBookings   = data['activeBookings']   as List<dynamic>;
+          _pendingBookings  = data['pendingBookings']  as List<dynamic>;
+          _pastBookings     = data['pastBookings']     as List<dynamic>;
+        });
       } else {
-        _incomingRequests = [];
+        // handle error...
       }
-
-      // 2) My bookings (as a rider)
-      final bookRes = await http.get(
-        Uri.parse('$_baseUrl/rides/bookings'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (bookRes.statusCode == 200) {
-        final body = jsonDecode(bookRes.body) as Map<String, dynamic>? ?? {};
-        final list = (body['bookings'] as List<dynamic>?) ?? [];
-        _myBookings = list.cast<Map<String, dynamic>>();
-      } else {
-        _myBookings = [];
-      }
-    } catch (_) {
-      _incomingRequests = [];
-      _myBookings       = [];
+    } catch (e) {
+      // handle network error...
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  Future<void> _handleRequest(
-      String rideId, String bookingId, bool accept) async {
+  Future<void> _respondToRequest(String rideId, String bookingId, bool accept) async {
     final token = await TokenStorage.readToken();
     if (token == null) return;
-
     final action = accept ? 'accept' : 'reject';
     await http.put(
       Uri.parse('$_baseUrl/rides/$rideId/requests/$bookingId/$action'),
       headers: {'Authorization': 'Bearer $token'},
     );
-    await _fetchAll();
+    await _loadDashboard();
   }
 
-  Widget _buildRequestsSection() {
-    if (_incomingRequests.isEmpty) return const SizedBox();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Incoming Requests',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ..._incomingRequests.map((r) {
-          final rideDetails = (r['rideDetails'] as Map<String, dynamic>?) ?? {};
-          final pickup    = rideDetails['pickupLocation'] as String? ?? 'N/A';
-          final drop      = rideDetails['dropLocation']   as String? ?? 'N/A';
-          final date      = rideDetails['date']?.split("T").first ?? '';
-          final time      = rideDetails['time']           as String? ?? '';
-          final studentEmail = r['studentEmail']       as String? ?? 'Unknown';
-          final bookingId    = r['_id']                as String? ?? '';
-
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListTile(
-              title: Text(studentEmail),
-              subtitle: Text(
-                '$pickup → $drop\non $date at $time',
-              ),
-              isThreeLine: true,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: bookingId.isEmpty
-                        ? null
-                        : () => _handleRequest(r['rideId'] as String, bookingId, true),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.red),
-                    onPressed: bookingId.isEmpty
-                        ? null
-                        : () => _handleRequest(r['rideId'] as String, bookingId, false),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ],
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
-  Widget _buildMyBookingsSection() {
-    if (_myBookings.isEmpty) return const SizedBox();
+  Widget _buildIncomingCard(dynamic r) {
+    final rd = r['rideDetails'] as Map<String, dynamic>;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            'Requester: ${r['requester']['name']}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          Text('Reg. No.: ${r['requester']['registrationNo']}'),
+          Text('Phone: ${r['requester']['phone']}'),
+          const SizedBox(height: 8),
+          Text('Route: ${rd['pickupLocation']} → ${rd['dropLocation']}'),
+          Text('When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]} at ${rd['time']}'),
+          const SizedBox(height: 12),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check),
+              label: const Text('Accept'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () => _respondToRequest(r['rideId'], r['bookingId'], true),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.clear),
+              label: const Text('Reject'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => _respondToRequest(r['rideId'], r['bookingId'], false),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
 
-    final active  = _myBookings.where((b) => b['status'] == 'accepted').toList();
-    final pending = _myBookings.where((b) => b['status'] == 'requested').toList();
-    final past    = _myBookings.where((b) {
-      final s = b['status'] as String?;
-      return s != 'accepted' && s != 'requested';
-    }).toList();
-
-    final sections = <Widget>[];
-
-    void addSection(String title, List<Map<String, dynamic>> list) {
-      if (list.isEmpty) return;
-      sections.add(
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+  Widget _buildBookingCard(dynamic b) {
+    final rd = b['rideDetails'] as Map<String, dynamic>;
+    final user = b.containsKey('offerer') ? b['offerer'] : b['requester'];
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      child: ListTile(
+        title: Text('${b.containsKey('offerer') ? 'Offerer' : 'Requester'}: ${user['name']}'),
+        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Reg. No.: ${user['registrationNo']}'),
+          Text('Phone: ${user['phone']}'),
+          const SizedBox(height: 4),
+          Text('Route: ${rd['pickupLocation']} → ${rd['dropLocation']}'),
+          Text('When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]} at ${rd['time']}'),
+        ]),
+        isThreeLine: true,
+        trailing: Chip(
+          label: Text(b['status'], style: const TextStyle(color: Colors.white)),
+          backgroundColor: b['status'] == 'accepted'
+              ? Colors.green
+              : b['status'] == 'requested'
+                  ? Colors.orange
+                  : Colors.grey,
         ),
-      );
-      sections.addAll(list.map((b) {
-        final rideId   = b['rideId']   as String? ?? '—';
-        final status   = b['status']   as String? ?? '—';
-        final bookingId = b['bookingId'] as String? ?? b['_id'] as String? ?? '';
-        return ListTile(
-          title: Text('Ride $rideId'),
-          subtitle: Text('Status: $status\nBooking: $bookingId'),
-          isThreeLine: true,
-        );
-      }));
-    }
-
-    addSection('Active Rides', active);
-    addSection('Pending Requests', pending);
-    addSection('Past Rides', past);
-
-    return Column(children: sections);
+      ),
+    );
   }
 
   @override
@@ -183,12 +157,40 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          : RefreshIndicator(
+              onRefresh: _loadDashboard,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  _buildRequestsSection(),
-                  _buildMyBookingsSection(),
+                  if (_incomingRequests.isNotEmpty) ...[
+                    _sectionHeader('Incoming Requests'),
+                    ..._incomingRequests.map(_buildIncomingCard),
+                  ],
+                  if (_activeBookings.isNotEmpty) ...[
+                    _sectionHeader('Active Bookings'),
+                    ..._activeBookings.map(_buildBookingCard),
+                  ],
+                  if (_pendingBookings.isNotEmpty) ...[
+                    _sectionHeader('Pending Bookings'),
+                    ..._pendingBookings.map(_buildBookingCard),
+                  ],
+                  if (_pastBookings.isNotEmpty) ...[
+                    _sectionHeader('Past Bookings'),
+                    ..._pastBookings.map(_buildBookingCard),
+                  ],
+                  if (_incomingRequests.isEmpty &&
+                      _activeBookings.isEmpty &&
+                      _pendingBookings.isEmpty &&
+                      _pastBookings.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          'No rides or requests found.',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
