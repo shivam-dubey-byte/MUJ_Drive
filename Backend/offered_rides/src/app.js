@@ -32,10 +32,12 @@ app.use('/rides', offerRoutes);
 app.use('/rides', findRoutes);
 //  3.c Booking lifecycle (book, list, accept/reject, cancel)
 app.use('/rides', bookingRoutes);
+
+app.use('/rides', dashboardRoutes);
+
 //  3.d In-app notifications
 app.use('/notifications', notificationRoutes);
 
-app.use('/rides', dashboardRoutes);
 
 // 4. Global error handler
 app.use((err, req, res, next) => {
