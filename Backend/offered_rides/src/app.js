@@ -14,6 +14,8 @@ const bookingRoutes      = require('./routes/bookingRoutes');
 // Existing notification routes
 const notificationRoutes = require('./routes/notificationRoutes');
 
+const dashboardRoutes    = require('./routes/dashboardRoutes');
+
 const app = express();
 
 // 1. Connect to MongoDB
@@ -32,6 +34,8 @@ app.use('/rides', findRoutes);
 app.use('/rides', bookingRoutes);
 //  3.d In-app notifications
 app.use('/notifications', notificationRoutes);
+
+app.use('/rides', dashboardRoutes);
 
 // 4. Global error handler
 app.use((err, req, res, next) => {

@@ -68,7 +68,8 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
     }
   }
 
-  Future<void> _handleRequest(String rideId, String bookingId, bool accept) async {
+  Future<void> _handleRequest(
+      String rideId, String bookingId, bool accept) async {
     final token = await TokenStorage.readToken();
     if (token == null) return;
 
@@ -94,12 +95,11 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
           ),
         ),
         ..._incomingRequests.map((r) {
-          // Defensive lookups:
           final rideDetails = (r['rideDetails'] as Map<String, dynamic>?) ?? {};
-          final pickup = rideDetails['pickupLocation'] as String? ?? 'N/A';
-          final drop   = rideDetails['dropLocation']   as String? ?? 'N/A';
-          final date   = rideDetails['date']           as String? ?? '';
-          final time   = rideDetails['time']           as String? ?? '';
+          final pickup    = rideDetails['pickupLocation'] as String? ?? 'N/A';
+          final drop      = rideDetails['dropLocation']   as String? ?? 'N/A';
+          final date      = rideDetails['date']?.split("T").first ?? '';
+          final time      = rideDetails['time']           as String? ?? '';
           final studentEmail = r['studentEmail']       as String? ?? 'Unknown';
           final bookingId    = r['_id']                as String? ?? '';
 
@@ -108,7 +108,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
             child: ListTile(
               title: Text(studentEmail),
               subtitle: Text(
-                '$pickup → $drop\non ${date.split("T").first} at $time',
+                '$pickup → $drop\non $date at $time',
               ),
               isThreeLine: true,
               trailing: Row(
@@ -138,9 +138,9 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
   Widget _buildMyBookingsSection() {
     if (_myBookings.isEmpty) return const SizedBox();
 
-    final active = _myBookings.where((b) => b['status'] == 'accepted').toList();
+    final active  = _myBookings.where((b) => b['status'] == 'accepted').toList();
     final pending = _myBookings.where((b) => b['status'] == 'requested').toList();
-    final past = _myBookings.where((b) {
+    final past    = _myBookings.where((b) {
       final s = b['status'] as String?;
       return s != 'accepted' && s != 'requested';
     }).toList();
@@ -156,8 +156,8 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
         ),
       );
       sections.addAll(list.map((b) {
-        final rideId = b['rideId'] as String? ?? '—';
-        final status = b['status'] as String? ?? '—';
+        final rideId   = b['rideId']   as String? ?? '—';
+        final status   = b['status']   as String? ?? '—';
         final bookingId = b['bookingId'] as String? ?? b['_id'] as String? ?? '';
         return ListTile(
           title: Text('Ride $rideId'),
