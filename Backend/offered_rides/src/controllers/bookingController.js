@@ -11,7 +11,6 @@ const { findStudentByEmail }       = require('../models/studentModel');
 /**
  * 1) Student books a ride
  *    POST /rides/:rideId/request
- *    → NO seat decrement here
  */
 exports.requestRide = asyncHandler(async (req, res) => {
   const studentEmail = req.user.email;
@@ -24,12 +23,11 @@ exports.requestRide = asyncHandler(async (req, res) => {
     res.status(400); throw new Error('Invalid rideId');
   }
 
-  // load & validate ride
   const ridesCol = await getOfferedRideCollection();
   const ride     = await ridesCol.findOne({ _id: new ObjectId(rideId) });
   if (!ride)                 { res.status(404); throw new Error('Ride not found'); }
 
-  // create booking record (status: requested)
+  // create booking (no seat change here)
   const bookingCol = await getBookingCollection();
   const bookingDoc = {
     rideId,
@@ -46,7 +44,7 @@ exports.requestRide = asyncHandler(async (req, res) => {
   };
   const { insertedId } = await bookingCol.insertOne(bookingDoc);
 
-  // in-app notification for the offerer
+  // in-app notification
   const notifCol = await getNotificationCollection();
   await notifCol.insertOne({
     userEmail: ride.email,
@@ -56,7 +54,7 @@ exports.requestRide = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the offerer with requester’s name & phone
+  // email the offerer
   const student = await findStudentByEmail(studentEmail);
   const studentName  = student?.name  || studentEmail;
   const studentPhone = student?.phone || 'N/A';
@@ -85,7 +83,6 @@ Please log in to accept or reject this request.
   });
 });
 
-
 /**
  * 2) Offerer lists incoming requests
  *    GET /rides/requests
@@ -109,28 +106,34 @@ exports.listRequests = asyncHandler(async (req, res) => {
   res.json({ requests: pending });
 });
 
-
 /**
- * 3) Student views their own bookings + status
+ * 3) Student views their own bookings + status (now includes bookingId)
  *    GET /rides/bookings
  */
 exports.listUserBookings = asyncHandler(async (req, res) => {
   const studentEmail = req.user.email;
   const bookingCol   = await getBookingCollection();
 
-  const bookings = await bookingCol
+  // fetch _id, rideId, status
+  const docs = await bookingCol
     .find({ studentEmail })
-    .project({ rideId:1, status:1, _id:0 })
+    .project({ _id: 1, rideId: 1, status: 1 })
     .toArray();
+
+  // map to include bookingId field
+  const bookings = docs.map(b => ({
+    bookingId: b._id.toString(),
+    rideId:    b.rideId,
+    status:    b.status
+  }));
 
   res.json({ bookings });
 });
 
-
 /**
  * 4) Offerer accepts a booking
  *    PUT /rides/:rideId/requests/:bookingId/accept
- *    → NOW decrement seat here
+ *    → decrement seat here
  */
 exports.acceptRequest = asyncHandler(async (req, res) => {
   const { rideId, bookingId } = req.params;
@@ -138,7 +141,7 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
   const ridesCol              = await getOfferedRideCollection();
   const notifCol              = await getNotificationCollection();
 
-  // atomically decrement seat
+  // decrement seat atomically
   const rideResult = await ridesCol.findOneAndUpdate(
     { _id: new ObjectId(rideId), seatsAvailable: { $gt: 0 } },
     { $inc: { seatsAvailable: -1 } },
@@ -157,11 +160,9 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
     res.status(404); throw new Error('Not found or already handled');
   }
 
-  // fetch for messaging
-  const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
-  const ride    = rideResult.value;
-
   // in-app notification for student
+  const ride    = rideResult.value;
+  const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
   const msg = `Your request for ride on ${ride.date.toDateString()} at ${ride.time} has been ACCEPTED.`;
   await notifCol.insertOne({
     userEmail: booking.studentEmail,
@@ -171,7 +172,7 @@ exports.acceptRequest = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the student with full ride details & offerer’s contact
+  // email the student
   const offerer = await findStudentByEmail(booking.offererEmail);
   const name  = offerer?.name  || booking.offererEmail;
   const phone = offerer?.phone || 'N/A';
@@ -199,17 +200,15 @@ Please coordinate with the offerer for pickup.
   res.json({ message: 'Booking accepted' });
 });
 
-
 /**
  * 5) Offerer rejects a booking
  *    PUT /rides/:rideId/requests/:bookingId/reject
- *    → NO seat increment here
  */
 exports.rejectRequest = asyncHandler(async (req, res) => {
   const { rideId, bookingId } = req.params;
   const bookingCol            = await getBookingCollection();
-  const notifCol              = await getNotificationCollection();
   const ridesCol              = await getOfferedRideCollection();
+  const notifCol              = await getNotificationCollection();
 
   // mark booking rejected
   const r1 = await bookingCol.updateOne(
@@ -220,11 +219,11 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
     res.status(404); throw new Error('Not found or already handled');
   }
 
-  // fetch for messaging
-  const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
-  const ride    = await ridesCol.findOne({ _id: new ObjectId(rideId) });
+  // no seat change here
 
   // in-app notification for student
+  const ride    = await ridesCol.findOne({ _id: new ObjectId(rideId) });
+  const booking = await bookingCol.findOne({ _id: new ObjectId(bookingId) });
   const msg = `Your request for ride on ${ride.date.toDateString()} at ${ride.time} was REJECTED.`;
   await notifCol.insertOne({
     userEmail: booking.studentEmail,
@@ -234,7 +233,7 @@ exports.rejectRequest = asyncHandler(async (req, res) => {
     read:      false
   });
 
-  // email the student with full ride details & offerer’s contact
+  // email the student
   const offerer = await findStudentByEmail(booking.offererEmail);
   const name  = offerer?.name  || booking.offererEmail;
   const phone = offerer?.phone || 'N/A';
@@ -262,11 +261,9 @@ Feel free to search for another ride.
   res.json({ message: 'Booking rejected' });
 });
 
-
 /**
  * 6) Student withdraws a pending booking
  *    PUT /rides/:rideId/requests/:bookingId/cancel
- *    → NO seat increment here
  */
 exports.cancelRequest = asyncHandler(async (req, res) => {
   const { rideId, bookingId } = req.params;
