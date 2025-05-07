@@ -33,3 +33,16 @@ exports.markRead = asyncHandler(async (req, res) => {
   }
   res.json({ message: 'Marked as read' });
 });
+
+exports.markAllRead = asyncHandler(async (req, res) => {
+  const userEmail = req.user.email;
+  const col       = await getNotificationCollection();
+
+  // set every unread → read
+  await col.updateMany(
+    { userEmail, read: false },
+    { $set: { read: true } }
+  );
+
+  res.json({ message: 'All notifications marked read' });
+});
