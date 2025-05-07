@@ -9,6 +9,7 @@ app.use(express.json());
 app.use(cors());
 
 app.use('/auth', authRoutes);
+app.use('/profile', require('./routes/profileRoutes'));
 
 app.get('/', (req, res) => res.json({ message: 'API is up' }));
 

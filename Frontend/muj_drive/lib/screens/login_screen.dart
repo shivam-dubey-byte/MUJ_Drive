@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (widget.userType == 'Student') {
           // **Use the same key your ProfileScreen expects**
-          final regNo = (body['registrationNo'] ?? '') as String;
+          final regNo = (body['registration'] ?? '') as String;
           await prefs.setString('registrationNo', regNo);
         } else {
           final veh = (body['vehicleDetails'] ?? '') as String;
