@@ -16,6 +16,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 
 const dashboardRoutes    = require('./routes/dashboardRoutes');
 
+const offeredHistoryRoutes = require('./routes/offeredHistoryRoutes');
+
 const app = express();
 
 // 1. Connect to MongoDB
@@ -38,6 +40,7 @@ app.use('/rides', dashboardRoutes);
 //  3.d In-app notifications
 app.use('/notifications', notificationRoutes);
 
+app.use('/rides', offeredHistoryRoutes);
 
 // 4. Global error handler
 app.use((err, req, res, next) => {

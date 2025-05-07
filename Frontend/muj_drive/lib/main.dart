@@ -12,6 +12,7 @@ import 'package:muj_drive/screens/offer_ride_screen.dart';
 import 'package:muj_drive/screens/my_rides_screen.dart';
 import 'package:muj_drive/screens/profile_screen.dart';
 import 'package:muj_drive/screens/notification_screen.dart'; // ✅ added
+import 'package:muj_drive/screens/offeredhistory_screen.dart';
 
 void main() => runApp(const MUJDriveApp());
 
@@ -34,6 +35,7 @@ class MUJDriveApp extends StatelessWidget {
         '/my-rides':   (_) => const MyRidesScreen(),
         '/profile':    (_) => const ProfileScreen(),
         '/notifications': (_) => const NotificationScreen(), // ✅ added route
+        '/offered-history': (_) => const OfferedHistoryScreen(),
       },
       onGenerateRoute: (settings) {
         switch (settings.name) {

@@ -76,19 +76,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _markAllRead() async {
     final token = await TokenStorage.readToken();
     if (token == null) return;
-    // snapshot the IDs first
-    final ids = _notifications.map((n) => n['id']!).toList();
-    // call mark-read for each
-    for (final id in ids) {
-      await http.put(
-        Uri.parse('$_baseUrl/notifications/$id/read'),
-        headers: {'Authorization': 'Bearer $token'},
+  
+    final res = await http.put(
+      Uri.parse('$_baseUrl/notifications/read-all'),
+      headers: { 'Authorization': 'Bearer $token' },
+    );
+  
+    if (res.statusCode == 200) {
+      // clear UI
+      setState(() {
+        _notifications.clear();
+      });
+    } else {
+      // optionally show an error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark all read')),
       );
     }
-    // then clear UI
-    setState(() {
-      _notifications.clear();
-    });
   }
 
   @override

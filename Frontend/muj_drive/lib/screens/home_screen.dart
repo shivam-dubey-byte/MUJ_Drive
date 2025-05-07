@@ -165,8 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(24.0, 48.0, 16.0, 0.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 48.0, 16.0, 0.0),
               child: RichText(
                 text: TextSpan(
                   style: const TextStyle(
@@ -178,8 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     TextSpan(text: 'Hello, $_name 👋\n'),
                     const TextSpan(
-                      text:
-                          '\n Wishing you a smooth and joyful ride experience!',
+                      text: '\n Wishing you a smooth and joyful ride experience!',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white70,
@@ -251,8 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _email!.isNotEmpty ? Text(_email!) : const SizedBox(),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white.withOpacity(0.9),
-                child: Icon(Icons.person,
-                    size: 40, color: AppTheme.primary),
+                child: Icon(Icons.person, size: 40, color: AppTheme.primary),
               ),
             ),
             Expanded(
@@ -289,6 +286,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(context, '/my-rides');
+                    },
+                  ),
+                  _DrawerTile(
+                    icon: Icons.history_toggle_off,
+                    label: 'Offered History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/offered-history');
                     },
                   ),
                   const Divider(),
@@ -336,13 +341,10 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive
-        ? Colors.redAccent
-        : Colors.black87;
+    final color = isDestructive ? Colors.redAccent : Colors.black87;
     return ListTile(
       leading: Icon(icon, color: color),
-      title: Text(label,
-          style: TextStyle(color: color)),
+      title: Text(label, style: TextStyle(color: color)),
       onTap: onTap,
       dense: true,
     );
@@ -372,11 +374,9 @@ class _DashboardTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 40,
-                  color: AppTheme.primary),
+              Icon(icon, size: 40, color: AppTheme.primary),
               const SizedBox(height: 12),
               Text(
                 label,
@@ -384,8 +384,7 @@ class _DashboardTile extends StatelessWidget {
                     .textTheme
                     .bodyMedium
                     ?.copyWith(
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
                 textAlign: TextAlign.center,
