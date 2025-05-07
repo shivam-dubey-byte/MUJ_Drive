@@ -35,7 +35,7 @@ class MUJDriveApp extends StatelessWidget {
         '/my-rides':   (_) => const MyRidesScreen(),
         '/profile':    (_) => const ProfileScreen(),
         '/notifications': (_) => const NotificationScreen(), // ✅ added route
-        '/offered-history': (_) => const OfferedHistoryScreen(),
+        '/offered-history': (_) => const OfferedhistoryScreen(),
       },
       onGenerateRoute: (settings) {
         switch (settings.name) {

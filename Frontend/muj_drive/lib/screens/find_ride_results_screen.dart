@@ -1,10 +1,7 @@
 // lib/screens/find_ride_results_screen.dart
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
-import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 
 class FindRideResultsScreen extends StatefulWidget {
@@ -27,55 +24,9 @@ class FindRideResultsScreen extends StatefulWidget {
 }
 
 class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
-  // Base URL of your backend
-  static const _baseUrl = 'https://mujdriveride.shivamrajdubey.tech';
-
-  // Tracks which ride indexes have an active request
+  /// Tracks which ride‐indexes are “requested”
   final Set<int> _requestedIndices = {};
-  // Maps index to bookingId so we can cancel
-  final Map<int, String> _bookingIds = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _loadExistingRequests();
-  }
-
-  /// Load existing bookings for this user and mark matching rides as "requested"
-  Future<void> _loadExistingRequests() async {
-    final token = await TokenStorage.readToken();
-    if (token == null) return;
-
-    final res = await http.get(
-      Uri.parse('$_baseUrl/rides/bookings'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    if (res.statusCode == 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final List<dynamic> bookings = body['bookings'] ?? [];
-      for (var b in bookings) {
-        if (b['status'] == 'requested') {
-          final rideId = b['rideId'] as String;
-          final idx = widget.rides.indexWhere((r) => r['rideId'] == rideId);
-          if (idx != -1) {
-            setState(() {
-              _requestedIndices.add(idx);
-              if (b.containsKey('bookingId')) {
-                _bookingIds[idx] = b['bookingId'] as String;
-              }
-            });
-          }
-        }
-      }
-    } else {
-      // Optionally handle error
-    }
-  }
-
-  /// Format a DateTime as DD/MM/YYYY
   String _formatDate(DateTime dt) {
     final dd = dt.day.toString().padLeft(2, '0');
     final mm = dt.month.toString().padLeft(2, '0');
@@ -83,7 +34,6 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
     return '$dd/$mm/$yy';
   }
 
-  /// Launch phone dialer
   Future<void> _launchCaller(String phoneNumber) async {
     final uri = Uri(scheme: 'tel', path: phoneNumber);
     if (await canLaunchUrl(uri)) {
@@ -95,70 +45,14 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
     }
   }
 
-  /// Book or cancel a ride request when the button is tapped
-  Future<void> _toggleRequest(int index) async {
-    final ride = widget.rides[index];
-    final rideId = ride['rideId'] as String;
-    final token = await TokenStorage.readToken();
-    if (token == null) return;
-
-    try {
-      if (!_requestedIndices.contains(index)) {
-        // Send book request
-        final res = await http.post(
-          Uri.parse('$_baseUrl/rides/$rideId/request'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        );
-        if (res.statusCode == 201) {
-          final body = jsonDecode(res.body) as Map<String, dynamic>;
-          final bookingId = body['bookingId'] as String;
-          setState(() {
-            _requestedIndices.add(index);
-            _bookingIds[index] = bookingId;
-          });
-        } else {
-          final error = jsonDecode(res.body)['message'] ?? 'Request failed';
-          throw Exception(error);
-        }
-      } else {
-        // Cancel existing request
-        final bookingId = _bookingIds[index];
-        if (bookingId == null) throw Exception('Missing bookingId');
-        final res = await http.put(
-          Uri.parse('$_baseUrl/rides/$rideId/requests/$bookingId/cancel'),
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        );
-        if (res.statusCode == 200) {
-          setState(() {
-            _requestedIndices.remove(index);
-            _bookingIds.remove(index);
-          });
-        } else {
-          final error = jsonDecode(res.body)['message'] ?? 'Cancel failed';
-          throw Exception(error);
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
-
-  /// Build the card for each ride (UI unchanged)
-  Widget _buildRideCard(
-      BuildContext context, Map<String, dynamic> ride, int index) {
+  Widget _buildRideCard(BuildContext context, Map<String, dynamic> ride, int index) {
     final isRequested = _requestedIndices.contains(index);
 
+    // rider info
     final riderName = ride['name'] as String;
-    final phoneNumber = ride['phone'] as String;
+    final phoneNumber = ride['phone'] as String; // phone from data
 
-    // Format date and time
+    // date & time
     final dt = DateTime.parse(ride['date'].toString());
     final dateStr = _formatDate(dt);
     final rawTime = (ride['time'] as String).trim();
@@ -218,12 +112,10 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _launchCaller(phoneNumber),
                   icon: const Icon(Icons.call, color: AppTheme.primary),
-                  label:
-                      const Text('Call', style: TextStyle(color: AppTheme.primary)),
+                  label: const Text('Call', style: TextStyle(color: AppTheme.primary)),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppTheme.primary),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -231,11 +123,18 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _toggleRequest(index),
+                  onPressed: () {
+                    setState(() {
+                      if (isRequested) {
+                        _requestedIndices.remove(index);
+                      } else {
+                        _requestedIndices.add(index);
+                      }
+                    });
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isRequested ? Colors.grey : AppTheme.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: AnimatedSwitcher(
@@ -263,7 +162,60 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
         backgroundColor: AppTheme.primary,
       ),
       body: Column(children: [
-        // you can keep your existing route overview and date/time bar here
+        // route overview
+        Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+          ),
+          child: Row(children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle, size: 12, color: AppTheme.primary),
+                Container(width: 2, height: 36, color: Colors.grey.shade300),
+                const Icon(Icons.location_on, size: 16, color: Colors.red),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.pickup,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  Text(widget.drop,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ]),
+        ),
+        // date/time bar
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(children: [
+            const Icon(Icons.calendar_today, size: 20, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text(_formatDate(widget.date), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            const SizedBox(width: 24),
+            const Icon(Icons.access_time, size: 20, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text(widget.time.format(context), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          ]),
+        ),
+        const SizedBox(height: 8),
         const Divider(height: 1),
         Expanded(
           child: widget.rides.isEmpty
@@ -271,8 +223,7 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
               : ListView.builder(
                   padding: const EdgeInsets.only(top: 8),
                   itemCount: widget.rides.length,
-                  itemBuilder: (_, i) =>
-                      _buildRideCard(context, widget.rides[i], i),
+                  itemBuilder: (_, i) => _buildRideCard(context, widget.rides[i], i),
                 ),
         ),
       ]),

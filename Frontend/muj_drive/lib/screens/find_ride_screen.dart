@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 import 'find_ride_results_screen.dart';
@@ -21,7 +22,6 @@ class _FindRideScreenState extends State<FindRideScreen> {
 
   late GoogleMapController _mapController;
   final _formKey = GlobalKey<FormState>();
-
   final _pickupCtrl = TextEditingController();
   final _destCtrl   = TextEditingController();
 
@@ -29,8 +29,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
   String? _destSelected;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-
-  bool _isLoading = false;  // ← loading flag
+  bool _isLoading = false;
 
   static const CameraPosition _initialCamera = CameraPosition(
     target: LatLng(23.2599, 77.4126),
@@ -106,15 +105,14 @@ class _FindRideScreenState extends State<FindRideScreen> {
     setState(() {
       _pickupSelected = sel;
       _pickupCtrl.text = sel;
-      _markers.removeWhere((m) => m.markerId.value == 'pickup');
-      _markers.add(Marker(
-        markerId: const MarkerId('pickup'),
-        position: pos,
-        infoWindow: InfoWindow(title: 'Pickup', snippet: sel),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueAzure,
-        ),
-      ));
+      _markers
+        ..removeWhere((m) => m.markerId.value == 'pickup')
+        ..add(Marker(
+          markerId: const MarkerId('pickup'),
+          position: pos,
+          infoWindow: InfoWindow(title: 'Pickup', snippet: sel),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        ));
       _routeLine = null;
     });
     _mapController.animateCamera(CameraUpdate.newLatLng(pos));
@@ -126,12 +124,13 @@ class _FindRideScreenState extends State<FindRideScreen> {
     setState(() {
       _destSelected = sel;
       _destCtrl.text = sel;
-      _markers.removeWhere((m) => m.markerId.value == 'dest');
-      _markers.add(Marker(
-        markerId: const MarkerId('dest'),
-        position: pos,
-        infoWindow: InfoWindow(title: 'Destination', snippet: sel),
-      ));
+      _markers
+        ..removeWhere((m) => m.markerId.value == 'dest')
+        ..add(Marker(
+          markerId: const MarkerId('dest'),
+          position: pos,
+          infoWindow: InfoWindow(title: 'Destination', snippet: sel),
+        ));
       _routeLine = null;
     });
     _mapController.animateCamera(CameraUpdate.newLatLng(pos));
@@ -185,6 +184,9 @@ class _FindRideScreenState extends State<FindRideScreen> {
 
     setState(() => _isLoading = true);
 
+    final prefs   = await SharedPreferences.getInstance();
+    final myPhone = prefs.getString('phone'); // matches ProfileScreen key :contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}
+
     final body = {
       'pickupLocation': _pickupSelected!,
       'dropLocation':   _destSelected!,
@@ -203,8 +205,13 @@ class _FindRideScreenState extends State<FindRideScreen> {
       );
 
       if (res.statusCode == 200) {
-        final data  = jsonDecode(res.body) as Map<String, dynamic>;
-        final rides = (data['rides'] as List).cast<Map<String, dynamic>>();
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        var rides  = (data['rides'] as List).cast<Map<String, dynamic>>();
+
+        // **filter out** any ride whose root `phone` equals the user’s phone :contentReference[oaicite:4]{index=4}:contentReference[oaicite:5]{index=5}
+        if (myPhone != null) {
+          rides = rides.where((r) => (r['phone'] as String) != myPhone).toList();
+        }
 
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -297,8 +304,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
                             labelText: 'Pickup Location',
                             prefixIcon: Icon(Icons.my_location),
                           ),
-                          validator: (_) =>
-                              _pickupSelected == null ? 'Required' : null,
+                          validator: (_) => _pickupSelected == null ? 'Required' : null,
                         ),
                         onSelected: _addPickupMarker,
                       ),
@@ -321,8 +327,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
                             labelText: 'Destination',
                             prefixIcon: Icon(Icons.location_on),
                           ),
-                          validator: (_) =>
-                              _destSelected == null ? 'Required' : null,
+                          validator: (_) => _destSelected == null ? 'Required' : null,
                         ),
                         onSelected: _addDestMarker,
                       ),
@@ -333,9 +338,11 @@ class _FindRideScreenState extends State<FindRideScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.calendar_today),
-                            label: Text(_selectedDate == null
-                                ? 'Select Date'
-                                : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
+                            label: Text(
+                              _selectedDate == null
+                                  ? 'Select Date'
+                                  : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                            ),
                             onPressed: _pickDate,
                           ),
                         ),
@@ -343,9 +350,11 @@ class _FindRideScreenState extends State<FindRideScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.access_time),
-                            label: Text(_selectedTime == null
-                                ? 'Select Time'
-                                : _selectedTime!.format(context)),
+                            label: Text(
+                              _selectedTime == null
+                                  ? 'Select Time'
+                                  : _selectedTime!.format(context),
+                            ),
                             onPressed: _pickTime,
                           ),
                         ),
@@ -364,6 +373,7 @@ class _FindRideScreenState extends State<FindRideScreen> {
                         },
                         child: const Text('Search'),
                       ),
+
                     ],
                   ),
                 ),
@@ -371,13 +381,10 @@ class _FindRideScreenState extends State<FindRideScreen> {
             ),
           ),
 
-          // loading overlay
           if (_isLoading)
             Container(
               color: Colors.black45,
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
