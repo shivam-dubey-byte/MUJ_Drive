@@ -102,7 +102,7 @@ class _FindRideResultsScreenState extends State<FindRideResultsScreen> {
               const Icon(Icons.work, size: 20, color: Colors.black54),
               const SizedBox(width: 8),
               Text(
-                'L S:${luggage['small']} M:${luggage['medium']} L:${luggage['large']}',
+                'S:${luggage['small']} M:${luggage['medium']} L:${luggage['large']}',
                 style: const TextStyle(fontSize: 14),
               ),
             ]),
