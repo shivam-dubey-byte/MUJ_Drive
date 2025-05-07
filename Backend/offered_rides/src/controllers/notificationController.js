@@ -13,7 +13,7 @@ exports.listNotifications = asyncHandler(async (req, res) => {
 
   const col = await getNotificationCollection();
   const notifications = await col
-    .find({ userEmail })
+    .find({ userEmail, read: false  })
     .sort({ createdAt: -1 })
     .toArray();
 

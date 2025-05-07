@@ -1,6 +1,10 @@
+// lib/screens/home_screen.dart
+
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
 import 'package:muj_drive/screens/notification_screen.dart';
@@ -26,20 +30,43 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _name;
   String? _email;
-  int _notificationCount = 3;
+  int _notificationCount = 0;
+
+  static const _baseUrl = 'https://mujdriveride.shivamrajdubey.tech';
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadNotificationCount();
   }
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _name = prefs.getString('name') ?? 'Guest User';
+      _name  = prefs.getString('name')  ?? 'Guest User';
       _email = prefs.getString('email') ?? '';
     });
+  }
+
+  Future<void> _loadNotificationCount() async {
+    final token = await TokenStorage.readToken();
+    if (token == null) return;
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/notifications'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final body  = jsonDecode(res.body) as Map<String, dynamic>;
+        final notes = (body['notifications'] as List<dynamic>?) ?? [];
+        setState(() {
+          _notificationCount = notes.length;
+        });
+      }
+    } catch (_) {
+      // ignore errors
+    }
   }
 
   Route _createNotificationRoute() {
@@ -91,8 +118,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.notifications, size: 32),
                   color: Colors.white,
-                  onPressed: () {
-                    Navigator.of(context).push(_createNotificationRoute());
+                  onPressed: () async {
+                    await Navigator.of(context).push(_createNotificationRoute());
+                    _loadNotificationCount();
                   },
                 ),
                 if (_notificationCount > 0)
@@ -137,7 +165,8 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24.0, 48.0, 16.0, 0.0),
+              padding:
+                  const EdgeInsets.fromLTRB(24.0, 48.0, 16.0, 0.0),
               child: RichText(
                 text: TextSpan(
                   style: const TextStyle(
@@ -149,7 +178,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     TextSpan(text: 'Hello, $_name 👋\n'),
                     const TextSpan(
-                      text: '\n Wishing you a smooth and joyful ride experience!',
+                      text:
+                          '\n Wishing you a smooth and joyful ride experience!',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white70,
@@ -217,10 +247,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               accountName: Text(_name ?? ''),
-              accountEmail: _email!.isNotEmpty ? Text(_email!) : null,
+              accountEmail:
+                  _email!.isNotEmpty ? Text(_email!) : const SizedBox(),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white.withOpacity(0.9),
-                child: Icon(Icons.person, size: 40, color: AppTheme.primary),
+                child: Icon(Icons.person,
+                    size: 40, color: AppTheme.primary),
               ),
             ),
             Expanded(
@@ -304,10 +336,13 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? Colors.redAccent : Colors.black87;
+    final color = isDestructive
+        ? Colors.redAccent
+        : Colors.black87;
     return ListTile(
       leading: Icon(icon, color: color),
-      title: Text(label, style: TextStyle(color: color)),
+      title: Text(label,
+          style: TextStyle(color: color)),
       onTap: onTap,
       dense: true,
     );
@@ -337,14 +372,20 @@ class _DashboardTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 40, color: AppTheme.primary),
+              Icon(icon, size: 40,
+                  color: AppTheme.primary),
               const SizedBox(height: 12),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(
+                      fontWeight:
+                          FontWeight.w600,
                       color: Colors.black87,
                     ),
                 textAlign: TextAlign.center,
