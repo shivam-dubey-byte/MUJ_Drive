@@ -19,18 +19,20 @@ exports.getDashboard = asyncHandler(async (req, res) => {
   const offeredRides = await rideCol
     .find({ email: userEmail })
     .toArray();
-  // Convert each ObjectId to hex string so it matches booking.rideId
+  // Convert ObjectIds to strings to match booking.rideId
   const offeredIds   = offeredRides.map(r => r._id.toString());
 
-  // 2) Incoming requests on those rides (rideId stored as string in bookings)
+  // 2) Incoming requests on those rides (only pending)
   const bookingCol  = await getBookingCollection();
   const incomingRaw = await bookingCol
-    .find({ rideId: { $in: offeredIds } })
+    .find({
+      rideId: { $in: offeredIds },
+      status: 'requested'    // <-- only show pending
+    })
     .toArray();
 
   const incomingRequests = await Promise.all(
     incomingRaw.map(async br => {
-      // Find the matching ride by comparing hex strings
       const ride      = offeredRides.find(r => r._id.toString() === br.rideId);
       const requester = await findStudentByEmail(br.studentEmail);
       return {
@@ -52,14 +54,13 @@ exports.getDashboard = asyncHandler(async (req, res) => {
     })
   );
 
-  // 3) My own bookings (as a rider)
+  // 3) My own bookings (as rider)
   const myRaw      = await bookingCol
     .find({ studentEmail: userEmail })
     .toArray();
 
   const myBookings = await Promise.all(
     myRaw.map(async br => {
-      // Convert the stored string back into ObjectId to fetch the ride doc
       const ride    = await rideCol.findOne({ _id: new ObjectId(br.rideId) });
       const offerer = await findStudentByEmail(ride.email);
       return {
@@ -81,14 +82,34 @@ exports.getDashboard = asyncHandler(async (req, res) => {
     })
   );
 
-  // 4) Split my bookings into active, pending, and past
-  const activeBookings  = myBookings.filter(b => b.status === 'accepted');
-  const pendingBookings = myBookings.filter(b => b.status === 'requested');
-  const pastBookings    = myBookings.filter(
-    b => b.status !== 'accepted' && b.status !== 'requested'
-  );
+  // 4) Partition myBookings into Active / Pending / Past
+  const now = new Date();
+  const activeBookings  = [];
+  const pendingBookings = [];
+  const pastBookings    = [];
 
-  // Respond with all four lists
+  myBookings.forEach(b => {
+    // build a Date for ride date+time
+    const dt = new Date(b.rideDetails.date);
+    const [timePart, ampm] = b.rideDetails.time.split(' ');
+    let [h, m] = timePart.split(':').map(n => parseInt(n, 10));
+    if (ampm) {
+      const isPM = ampm.toLowerCase() === 'pm';
+      if (isPM && h < 12) h += 12;
+      if (!isPM && h === 12) h = 0;
+    }
+    dt.setHours(h, m, 0, 0);
+
+    if (b.status === 'requested') {
+      pendingBookings.push(b);
+    } else if (b.status === 'accepted' && dt > now) {
+      activeBookings.push(b);
+    } else {
+      pastBookings.push(b);
+    }
+  });
+
+  // 5) Send back all four lists
   res.json({
     incomingRequests,
     activeBookings,

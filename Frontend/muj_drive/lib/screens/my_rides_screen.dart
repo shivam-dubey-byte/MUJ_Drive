@@ -49,17 +49,16 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
           _pendingBookings  = data['pendingBookings']  as List<dynamic>;
           _pastBookings     = data['pastBookings']     as List<dynamic>;
         });
-      } else {
-        // handle error...
       }
-    } catch (e) {
-      // handle network error...
+    } catch (_) {
+      // optionally show an error
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  Future<void> _respondToRequest(String rideId, String bookingId, bool accept) async {
+  Future<void> _respondToRequest(
+      String rideId, String bookingId, bool accept) async {
     final token = await TokenStorage.readToken();
     if (token == null) return;
     final action = accept ? 'accept' : 'reject';
@@ -70,15 +69,11 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
     await _loadDashboard();
   }
 
-  Widget _sectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
+  Widget _sectionHeader(String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+        child: Text(title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+      );
 
   Widget _buildIncomingCard(dynamic r) {
     final rd = r['rideDetails'] as Map<String, dynamic>;
@@ -87,33 +82,60 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            'Requester: ${r['requester']['name']}',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+          Text('Requester: ${r['requester']['name']}',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 16)),
+          const SizedBox(height: 4),
           Text('Reg. No.: ${r['requester']['registrationNo']}'),
           Text('Phone: ${r['requester']['phone']}'),
-          const SizedBox(height: 8),
+          const Divider(height: 24),
           Text('Route: ${rd['pickupLocation']} → ${rd['dropLocation']}'),
-          Text('When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]} at ${rd['time']}'),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check),
-              label: const Text('Accept'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: () => _respondToRequest(r['rideId'], r['bookingId'], true),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.clear),
-              label: const Text('Reject'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => _respondToRequest(r['rideId'], r['bookingId'], false),
-            ),
-          ]),
+          const SizedBox(height: 4),
+          Text(
+            'When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]}'
+            ' at ${rd['time']}',
+          ),
+          const SizedBox(height: 16),
+          // Beautiful row of buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _respondToRequest(r['rideId'], r['bookingId'], true),
+                  icon: const Icon(Icons.check, color: Colors.white),
+                  label: const Text('Accept'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _respondToRequest(r['rideId'], r['bookingId'], false),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  label: const Text('Reject'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ]),
       ),
     );
@@ -127,17 +149,26 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
       child: ListTile(
-        title: Text('${b.containsKey('offerer') ? 'Offerer' : 'Requester'}: ${user['name']}'),
-        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Reg. No.: ${user['registrationNo']}'),
-          Text('Phone: ${user['phone']}'),
-          const SizedBox(height: 4),
-          Text('Route: ${rd['pickupLocation']} → ${rd['dropLocation']}'),
-          Text('When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]} at ${rd['time']}'),
-        ]),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        title: Text(
+            '${b.containsKey('offerer') ? 'Offerer' : 'Requester'}: ${user['name']}'),
+        subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Reg. No.: ${user['registrationNo']}'),
+              Text('Phone: ${user['phone']}'),
+              const SizedBox(height: 8),
+              Text('Route: ${rd['pickupLocation']} → ${rd['dropLocation']}'),
+              Text(
+                'When: ${DateTime.parse(rd['date']).toLocal().toString().split(' ')[0]}'
+                ' at ${rd['time']}',
+              ),
+            ]),
         isThreeLine: true,
         trailing: Chip(
-          label: Text(b['status'], style: const TextStyle(color: Colors.white)),
+          label:
+              Text(b['status'], style: const TextStyle(color: Colors.white)),
           backgroundColor: b['status'] == 'accepted'
               ? Colors.green
               : b['status'] == 'requested'
