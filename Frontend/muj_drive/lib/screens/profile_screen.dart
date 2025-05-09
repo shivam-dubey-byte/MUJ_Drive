@@ -1,6 +1,9 @@
+import 'dart:convert';                                // for jsonEncode
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;               // new
 import 'package:muj_drive/theme/app_theme.dart';
+import 'package:muj_drive/services/token_storage.dart'; // new
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -9,6 +12,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const _baseUrl = 'https://mujdrive.shivamrajdubey.tech'; // new
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl,
       _emailCtrl,
@@ -17,15 +22,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _vehicleCtrl,
       _licenseCtrl;
   String _role = '';
-  bool _loading = true;
+  bool _loading = true, _saving = false; // track saving state
 
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController();
-    _emailCtrl = TextEditingController();
-    _phoneCtrl = TextEditingController();
-    _regNoCtrl = TextEditingController();
+    _nameCtrl    = TextEditingController();
+    _emailCtrl   = TextEditingController();
+    _phoneCtrl   = TextEditingController();
+    _regNoCtrl   = TextEditingController();
     _vehicleCtrl = TextEditingController();
     _licenseCtrl = TextEditingController();
     _loadProfile();
@@ -34,11 +39,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _role = prefs.getString('role') ?? 'Student';
+      _role          = prefs.getString('role') ?? 'Student';
       _nameCtrl.text = prefs.getString('name') ?? '';
-      _emailCtrl.text = prefs.getString('email') ?? '';
-      _phoneCtrl.text = prefs.getString('phone') ?? '';
-      _regNoCtrl.text = prefs.getString('registrationNo') ?? '';
+      _emailCtrl.text= prefs.getString('email') ?? '';
+      _phoneCtrl.text= prefs.getString('phone') ?? '';
+      _regNoCtrl.text= prefs.getString('registrationNo') ?? '';
       _vehicleCtrl.text = prefs.getString('vehicleDetails') ?? '';
       _licenseCtrl.text = prefs.getString('drivingLicense') ?? '';
       _loading = false;
@@ -47,18 +52,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', _nameCtrl.text.trim());
-    await prefs.setString('phone', _phoneCtrl.text.trim());
-    if (_role == 'Student') {
-      await prefs.setString('registrationNo', _regNoCtrl.text.trim());
-    } else {
-      await prefs.setString('vehicleDetails', _vehicleCtrl.text.trim());
-      await prefs.setString('drivingLicense', _licenseCtrl.text.trim());
+    setState(() => _saving = true);
+
+    final token = await TokenStorage.readToken();               // :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not authenticated')),
+      );
+      setState(() => _saving = false);
+      return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully')),
-    );
+
+    // build payload
+    final body = {
+      'name' : _nameCtrl.text.trim(),
+      'phone': _phoneCtrl.text.trim(),
+      if (_role == 'Student') 'registrationNo': _regNoCtrl.text.trim(),
+      if (_role != 'Student') ...{
+        'vehicleDetails': _vehicleCtrl.text.trim(),
+        'drivingLicense': _licenseCtrl.text.trim(),
+      },
+    };
+
+    try {
+      final uri = Uri.parse('$_baseUrl/profile');
+      final res = await http.put(
+        uri,
+        headers: {
+          'Content-Type' : 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (res.statusCode == 200) {
+        // Update local cache just like before
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('name', _nameCtrl.text.trim());
+        await prefs.setString('phone', _phoneCtrl.text.trim());
+        if (_role == 'Student') {
+          await prefs.setString('registrationNo', _regNoCtrl.text.trim());
+        } else {
+          await prefs.setString('vehicleDetails', _vehicleCtrl.text.trim());
+          await prefs.setString('drivingLicense', _licenseCtrl.text.trim());
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+      } else {
+        final msg = jsonDecode(res.body)['message'] ?? 'Update failed';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error: $e')),
+      );
+    } finally {
+      setState(() => _saving = false);
+    }
   }
 
   @override
@@ -114,39 +167,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: SafeArea(
-          child: LayoutBuilder(builder: (context, constraints) {
-            final cardWidth = constraints.maxWidth * 0.95;
+          child: LayoutBuilder(builder: (ctx, constraints) {
+            final w = constraints.maxWidth * 0.95;
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: cardWidth),
+                  constraints: BoxConstraints(maxWidth: w),
                   child: Column(
                     children: [
                       CircleAvatar(
                         radius: 48,
                         backgroundColor: Colors.white,
-                        child:
-                            Icon(Icons.person, size: 56, color: AppTheme.primary),
+                        child: Icon(Icons.person, size: 56, color: AppTheme.primary),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'Your Name',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _role,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                        ),
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                       const SizedBox(height: 24),
+
                       Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -158,19 +206,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             key: _formKey,
                             child: Column(
                               children: [
-                                // Full Name
                                 TextFormField(
                                   controller: _nameCtrl,
                                   decoration: const InputDecoration(
                                     labelText: 'Full Name',
                                     prefixIcon: Icon(Icons.person),
                                   ),
-                                  validator: (v) =>
-                                      v!.trim().isEmpty ? 'Required' : null,
+                                  validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Truncated email with tap-to-show
                                 InkWell(
                                   onTap: _showFullEmail,
                                   child: InputDecorator(
@@ -188,7 +233,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Phone Number
                                 TextFormField(
                                   controller: _phoneCtrl,
                                   decoration: const InputDecoration(
@@ -196,12 +240,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     prefixIcon: Icon(Icons.phone),
                                   ),
                                   keyboardType: TextInputType.phone,
-                                  validator: (v) =>
-                                      v!.trim().isEmpty ? 'Required' : null,
+                                  validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                                 ),
                                 const SizedBox(height: 16),
 
-                                // Role‑specific fields
                                 if (_role == 'Student') ...[
                                   TextFormField(
                                     controller: _regNoCtrl,
@@ -234,18 +276,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
+                                    onPressed: _saving ? null : _saveProfile,
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    onPressed: _saveProfile,
-                                    child: const Text(
-                                      'Save Changes',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
+                                    child: _saving
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(color: Colors.white),
+                                          )
+                                        : const Text('Save Changes', style: TextStyle(fontSize: 16)),
                                   ),
                                 ),
                               ],
