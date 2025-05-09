@@ -13,6 +13,7 @@ import 'package:muj_drive/screens/my_rides_screen.dart';
 import 'package:muj_drive/screens/profile_screen.dart';
 import 'package:muj_drive/screens/notification_screen.dart'; // ✅ added
 import 'package:muj_drive/screens/offeredhistory_screen.dart';
+import 'package:muj_drive/screens/driver_under_development.dart';//Driver Page Under Development
 
 void main() => runApp(const MUJDriveApp());
 
@@ -36,6 +37,7 @@ class MUJDriveApp extends StatelessWidget {
         '/profile':    (_) => const ProfileScreen(),
         '/notifications': (_) => const NotificationScreen(), // ✅ added route
         '/offered-history': (_) => const OfferedhistoryScreen(),
+        '/driver-development': (context) => const DriverUnderDevelopmentScreen(),
       },
       onGenerateRoute: (settings) {
         switch (settings.name) {

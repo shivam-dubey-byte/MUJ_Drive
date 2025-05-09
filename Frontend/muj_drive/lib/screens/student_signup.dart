@@ -146,7 +146,7 @@ class _StudentSignupFormState extends State<StudentSignupForm> {
                     height: 24,
                     child: CircularProgressIndicator(color: Colors.white),
                   )
-                : const Text('Verify Email & Sign Up'),
+                : const Text('Sign Up'),
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),

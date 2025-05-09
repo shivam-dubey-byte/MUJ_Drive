@@ -72,7 +72,7 @@ class _InitialScreenState extends State<InitialScreen> {
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.school),
+                    icon: const Icon(Icons.school, color: Colors.white),
                     label: const Text('I am a Student'),
                     onPressed: () => Navigator.pushNamed(
                       context,
@@ -82,7 +82,7 @@ class _InitialScreenState extends State<InitialScreen> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.drive_eta),
+                    icon: const Icon(Icons.drive_eta, color: Colors.white,),
                     label: const Text('I am a Driver'),
                     onPressed: () => Navigator.pushNamed(
                       context,
