@@ -18,66 +18,64 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool showSignup = false;
-  final _emailCtrl    = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  bool    _loading    = false;
+  bool _loading = false;
   String? _error;
 
   Future<void> _login() async {
     final email = _emailCtrl.text.trim();
-    final pass  = _passwordCtrl.text;
+    final pass = _passwordCtrl.text;
     if (email.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Please enter both email & password');
       return;
     }
 
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
       // choose endpoint
       final uri = Uri.parse(
         widget.userType == 'Student'
-          ? 'https://mujdrive.shivamrajdubey.tech/auth/student/login'
-          : 'https://mujdrive.shivamrajdubey.tech/auth/driver/login'
+            ? 'https://mujdrive.shivamrajdubey.tech/auth/student/login'
+            : 'https://mujdrive.shivamrajdubey.tech/auth/driver/login',
       );
 
       final res = await http.post(
         uri,
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': pass}),
       );
 
       if (res.statusCode == 200) {
-        final body  = jsonDecode(res.body) as Map<String, dynamic>;
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
         final token = body['token'] as String?;
-        final name  = body['name']  as String?;
+        final name = body['name'] as String?;
         final phone = body['phone'] as String?;
 
-        if (token==null || name==null || phone==null) {
+        if (token == null || name == null || phone == null) {
           throw Exception('Missing required fields');
         }
 
         final prefs = await SharedPreferences.getInstance();
         await TokenStorage.writeToken(token);
 
-        // **Save role so ProfileScreen can branch correctly**
+        // Save role so ProfileScreen can branch correctly
         await prefs.setString('role', widget.userType);
         await prefs.setString('name', name);
         await prefs.setString('email', email);
         await prefs.setString('phone', phone);
 
         if (widget.userType == 'Student') {
-          // **Use the same key your ProfileScreen expects**
-          final regNo = (body['registration'] ?? '') as String;
-          await prefs.setString('registrationNo', regNo);
+          // Redirect to home for Student
+          Navigator.pushReplacementNamed(context, '/home');
         } else {
-          final veh = (body['vehicleDetails'] ?? '') as String;
-          final lic = (body['drivingLicense'] ?? '') as String;
-          await prefs.setString('vehicleDetails', veh);
-          await prefs.setString('drivingLicense', lic);
+          // Redirect to Driver Under Development page
+          Navigator.pushReplacementNamed(context, '/driver-development');
         }
-
-        Navigator.pushReplacementNamed(context, '/home');
       } else {
         final msg = (jsonDecode(res.body)['message'] ?? 'Login failed') as String;
         setState(() => _error = msg);
@@ -85,7 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       setState(() => _error = 'Error: $e');
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
@@ -102,9 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(showSignup
-            ? '${widget.userType} Signup'
-            : '${widget.userType} Login'),
+        title: Text(showSignup ? '${widget.userType} Signup' : '${widget.userType} Login'),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -165,8 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child:
-                                        CircularProgressIndicator(color: Colors.white),
+                                    child: CircularProgressIndicator(color: Colors.white),
                                   )
                                 : const Text('Login'),
                           ),
@@ -181,8 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 16),
                           TextButton(
                             onPressed: () => setState(() => showSignup = true),
-                            child:
-                                const Text('Don’t have an account? Sign up'),
+                            child: const Text('Don’t have an account? Sign up'),
                           ),
                         ],
                       ),

@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:muj_drive/theme/app_theme.dart';
+import 'package:muj_drive/services/token_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DriverUnderDevelopmentScreen extends StatelessWidget {
   const DriverUnderDevelopmentScreen({Key? key}) : super(key: key);
+
+  Future<void> _logout(BuildContext context) async {
+    // Clear stored token and user data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await TokenStorage.clearToken();
+
+    // Navigate directly to the initial screen, removing all previous routes
+    //Navigator.pushNamedAndRemoveUntil(context, '/initial', (route) => true);
+      // Navigate directly to the initial screen, removing all previous routes
+  Navigator.of(context).pushNamedAndRemoveUntil('/initial', (route) =>false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +43,12 @@ class DriverUnderDevelopmentScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/initial'),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-                child: const Text('Return to Welcome'),
+                onPressed: () => _logout(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Logout'),
               ),
             ],
           ),

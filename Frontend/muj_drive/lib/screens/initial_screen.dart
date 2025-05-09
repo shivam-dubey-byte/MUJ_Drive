@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:muj_drive/services/token_storage.dart';
 import 'package:muj_drive/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InitialScreen extends StatefulWidget {
   const InitialScreen({Key? key}) : super(key: key);
@@ -20,9 +21,14 @@ class _InitialScreenState extends State<InitialScreen> {
 
   Future<void> _checkJwt() async {
     final token = await TokenStorage.readToken();
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('role');
     // Delay navigation until after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (token != null && token.isNotEmpty) {
+            if (role == 'Driver') {
+        // Always redirect drivers to the under development screen
+        Navigator.pushReplacementNamed(context, '/driver-development');
+      } else if (token != null && token.isNotEmpty && role == 'Student') {
         print('🚦 InitialScreen: token exists, navigating to /home');
         Navigator.pushReplacementNamed(context, '/home');
       } else {
