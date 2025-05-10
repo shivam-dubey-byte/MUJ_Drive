@@ -1,20 +1,82 @@
 // lib/screens/book_ride_screen.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import 'package:muj_drive/theme/app_theme.dart';
+import 'package:muj_drive/services/token_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class BookRideScreen extends StatelessWidget {
+class BookRideScreen extends StatefulWidget {
   const BookRideScreen({Key? key}) : super(key: key);
 
-  // Example data – replace with your real list
-  static const List<Map<String, String>> _companies = [
-    { 'name': 'Rapid Rides Co.',         'phone': '+911234567890' },
-    { 'name': 'Campus Shuttles Pvt. Ltd', 'phone': '+919876543210' },
-    { 'name': 'GoDrive Services',        'phone': '+911112223334' },
-  ];
+  @override
+  State<BookRideScreen> createState() => _BookRideScreenState();
+}
 
-  Future<void> _makePhoneCall(BuildContext context, String phone) async {
+class _BookRideScreenState extends State<BookRideScreen> {
+  static const String _baseUrl = 'https://mujdriveride.shivamrajdubey.tech';
+  List<Map<String, String>> _companies = [];
+  bool _loading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrivers();
+  }
+
+  Future<void> _loadDrivers() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final token = await TokenStorage.readToken() ?? '';
+      final res = await http.get(
+        Uri.parse('$_baseUrl/api/drivers'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        final List<dynamic> raw = jsonDecode(res.body);
+        setState(() {
+          _companies = raw.map<Map<String, String>>((item) {
+            return {
+              'name': item['name'] as String,
+              'phone': item['phone'] as String,
+            };
+          }).toList();
+          _loading = false;
+        });
+      } else if (res.statusCode == 401) {
+        setState(() {
+          _errorMessage = 'Unauthorized: please log in again.';
+          _loading = false;
+        });
+      } else if (res.statusCode == 403) {
+        setState(() {
+          _errorMessage = 'Access denied: students only.';
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load drivers (${res.statusCode}).';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching drivers:\n$e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _makePhoneCall(String phone) async {
     final uri = Uri(scheme: 'tel', path: phone);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
@@ -25,7 +87,7 @@ class BookRideScreen extends StatelessWidget {
     }
   }
 
-  void _showDetails(BuildContext context, Map<String, String> company) {
+  void _showDetails(Map<String, String> company) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -71,8 +133,7 @@ class BookRideScreen extends StatelessWidget {
               ),
               icon: const Icon(Icons.call),
               label: const Text('Call Now'),
-              onPressed: () =>
-                  _makePhoneCall(context, company['phone']!),
+              onPressed: () => _makePhoneCall(company['phone']!),
             ),
             const SizedBox(height: 16),
           ],
@@ -87,41 +148,49 @@ class BookRideScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Book a Ride'),
         backgroundColor: AppTheme.primary,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadDrivers),
+        ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _companies.length,
-        itemBuilder: (ctx, i) {
-          final company = _companies[i];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 3,
-            child: ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              leading: CircleAvatar(
-                backgroundColor: AppTheme.secondary.withOpacity(0.2),
-                child: Text(
-                  company['name']!.substring(0, 1),
-                  style: TextStyle(color: AppTheme.secondary),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text(_errorMessage!))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _companies.length,
+                  itemBuilder: (_, i) {
+                    final company = _companies[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 3,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 16),
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              AppTheme.secondary.withOpacity(0.2),
+                          child: Text(
+                            company['name']!.substring(0, 1),
+                            style: TextStyle(color: AppTheme.secondary),
+                          ),
+                        ),
+                        title: Text(
+                          company['name']!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _showDetails(company),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              title: Text(
-                company['name']!,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _showDetails(ctx, company),
-            ),
-          );
-        },
-      ),
     );
   }
 }

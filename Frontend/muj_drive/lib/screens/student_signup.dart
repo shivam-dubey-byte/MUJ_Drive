@@ -16,59 +16,124 @@ class StudentSignupForm extends StatefulWidget {
 
 class _StudentSignupFormState extends State<StudentSignupForm> {
   final _emailCtrl = TextEditingController();
-  final _nameCtrl  = TextEditingController();
+  final _nameCtrl = TextEditingController();
   final _regNoCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
+  final _passCtrl = TextEditingController();
 
-  bool    _loading = false;
+  bool _loading = false;
+  bool _obscurePass = true;
   String? _error;
+
+  String? _nameError;
+  String? _emailError;
+  String? _regNoError;
+  String? _phoneError;
+  String? _passError;
 
   static const _baseUrl = 'https://mujdrive.shivamrajdubey.tech';
 
   Future<void> _onVerifyAndSignup() async {
     final email = _emailCtrl.text.trim();
-    final name  = _nameCtrl.text.trim();
+    final name = _nameCtrl.text.trim();
     final regNo = _regNoCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
-    final pass  = _passCtrl.text;
+    var phone = _phoneCtrl.text.trim();
+    final pass = _passCtrl.text;
 
-    if ([email, name, regNo, phone, pass].any((s) => s.isEmpty)) {
-      setState(() => _error = 'Please fill all fields');
+    // Clear previous errors
+    setState(() {
+      _nameError =
+          _emailError = _regNoError = _phoneError = _passError = _error = null;
+    });
+
+    // Validation patterns
+    final emailPattern =
+        RegExp(r'^([A-Za-z]+)\.([A-Za-z0-9]+)@muj\.manipal\.edu$');
+    final passPattern =
+        RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$&]).{8,}$');
+
+    bool hasError = false;
+
+    if (name.isEmpty) {
+      _nameError = 'Please enter your full name';
+      hasError = true;
+    }
+
+    if (email.isEmpty) {
+      _emailError = 'Please enter your MUJ Outlook address';
+      hasError = true;
+    } else if (!emailPattern.hasMatch(email)) {
+      _emailError = 'Incorrect MUJ Outlook format';
+      hasError = true;
+    }
+
+    if (regNo.isEmpty) {
+      _regNoError = 'Please enter your registration number';
+      hasError = true;
+    } else if (_emailError == null) {
+      final match = emailPattern.firstMatch(email);
+      final regFromEmail = match?.group(2) ?? '';
+      if (regFromEmail.toLowerCase() != regNo.toLowerCase()) {
+        _regNoError = 'Registration number must match the one in your email';
+        hasError = true;
+      }
+    }
+
+    // Sanitize and validate phone
+    phone = phone.replaceFirst(RegExp(r'^(?:\+91|0)+'), '');
+    if (phone.isEmpty) {
+      _phoneError = 'Please enter your phone number';
+      hasError = true;
+    } else if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+      _phoneError = 'Phone number must be exactly 10 digits';
+      hasError = true;
+    }
+
+    if (pass.isEmpty) {
+      _passError = 'Please enter a password';
+      hasError = true;
+    } else if (!passPattern.hasMatch(pass)) {
+      _passError =
+          'Min 8 chars (A-Z, a-z, 0-9, !@#\$&)\n(e.g. Ex@mple1)';
+      hasError = true;
+    }
+
+    if (hasError) {
+      setState(() {});
       return;
     }
 
-    // 1) Email OTP
+    // Email OTP step
     final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => OtpVerificationScreen(email: email)),
     );
     if (ok != true) return;
 
-    // 2) Signup request
-    setState(() { _loading = true; _error = null; });
+    // Signup request
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final uri = Uri.parse('$_baseUrl/auth/student/signup');
       final res = await http.post(
         uri,
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'name':           name,
+          'name': name,
           'registrationNo': regNo,
-          'email':          email,
-          'phone':          phone,
-          'password':       pass,
+          'email': email,
+          'phone': phone,
+          'password': pass,
         }),
       );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         final token = body['token'] as String?;
-        if (token == null) {
-          throw Exception('Signup succeeded but no token returned');
-        }
+        if (token == null) throw Exception('No token returned');
 
-        // 3) Save token and all details
         final prefs = await SharedPreferences.getInstance();
         await TokenStorage.writeToken(token);
         await prefs.setString('email', email);
@@ -84,69 +149,90 @@ class _StudentSignupFormState extends State<StudentSignupForm> {
     } catch (e) {
       setState(() => _error = 'Error: $e');
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Full Name',
-              prefixIcon: Icon(Icons.person),
+              prefixIcon: const Icon(Icons.person),
+              errorText: _nameError,
+              errorMaxLines: 2,
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _emailCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email),
+            decoration: InputDecoration(
+              labelText: 'MUJ Outlook',
+              prefixIcon: const Icon(Icons.email),
+              errorText: _emailError,
+              errorMaxLines: 2,
             ),
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _regNoCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Registration No.',
-              prefixIcon: Icon(Icons.badge),
+              prefixIcon: const Icon(Icons.badge),
+              errorText: _regNoError,
+              errorMaxLines: 2,
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _phoneCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Phone Number',
-              prefixIcon: Icon(Icons.phone),
+              prefixIcon: const Icon(Icons.phone),
+              errorText: _phoneError,
+              errorMaxLines: 2,
             ),
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _passCtrl,
-            decoration: const InputDecoration(
+            obscureText: _obscurePass,
+            decoration: InputDecoration(
               labelText: 'Password',
-              prefixIcon: Icon(Icons.lock),
+              prefixIcon: const Icon(Icons.lock),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePass ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () => setState(() => _obscurePass = !_obscurePass),
+              ),
+              errorText: _passError,
+              errorMaxLines: 2,
             ),
-            obscureText: true,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _loading ? null : _onVerifyAndSignup,
-            child: _loading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(color: Colors.white),
-                  )
-                : const Text('Sign Up'),
+          SizedBox(
+            width: 180,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _onVerifyAndSignup,
+              child: _loading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : const Text('Sign Up'),
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),

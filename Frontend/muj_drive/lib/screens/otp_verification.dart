@@ -43,10 +43,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         body: jsonEncode({'email': widget.email}),
       );
       if (res.statusCode != 200) {
-        throw Exception(jsonDecode(res.body)['message'] ?? 'Failed to send OTP');
+        final msg = _parseError(res.body);
+        throw Exception(msg);
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       setState(() => _sending = false);
     }
@@ -58,10 +59,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       setState(() => _error = 'Enter the 6-digit code');
       return;
     }
+
     setState(() {
       _verifying = true;
       _error = null;
     });
+
     final uri = Uri.parse('${OtpVerificationScreen._baseUrl}/auth/verify-otp');
     try {
       final res = await http.post(
@@ -72,12 +75,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (res.statusCode == 200) {
         Navigator.of(context).pop(true);
       } else {
-        throw Exception(jsonDecode(res.body)['message'] ?? 'Invalid OTP');
+        final msg = _parseError(res.body);
+        setState(() => _error = msg);
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = 'Network error. Please try again.');
     } finally {
       setState(() => _verifying = false);
+    }
+  }
+
+  String _parseError(String responseBody) {
+    try {
+      final Map<String, dynamic> json = jsonDecode(responseBody);
+      return json['message'] as String? ?? 'Invalid OTP';
+    } catch (_) {
+      return 'Invalid OTP';
     }
   }
 
@@ -121,13 +134,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
-
-                        // Highlight + OTP fields aligned via Stack
                         SizedBox(
-                          height: 50, // match PinCode fieldHeight
+                          height: 50,
                           child: Stack(
                             children: [
-                              // Highlight box
                               Positioned.fill(
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -136,7 +146,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   ),
                                 ),
                               ),
-                              // OTP fields on top
                               Align(
                                 alignment: Alignment.center,
                                 child: PinCodeTextField(
@@ -159,7 +168,15 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             ],
                           ),
                         ),
-
+                        const SizedBox(height: 8),
+                        Text(
+                          'If you don’t see the email, check your junk or spam folder.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: 24),
                         ElevatedButton(
                           onPressed: _verifying ? null : _verifyOtp,
@@ -167,7 +184,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               ? const SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(color: Colors.white),
+                                  child:
+                                      CircularProgressIndicator(color: Colors.white),
                                 )
                               : const Text('Verify & Continue'),
                         ),

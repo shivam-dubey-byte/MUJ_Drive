@@ -1,3 +1,5 @@
+// lib/screens/login_screen.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -21,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
+  bool _obscurePassword = true;
   String? _error;
 
   Future<void> _login() async {
@@ -37,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // choose endpoint
       final uri = Uri.parse(
         widget.userType == 'Student'
             ? 'https://mujdrive.shivamrajdubey.tech/auth/student/login'
@@ -62,30 +64,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
         final prefs = await SharedPreferences.getInstance();
         await TokenStorage.writeToken(token);
-
-        // Save role so ProfileScreen can branch correctly
         await prefs.setString('role', widget.userType);
         await prefs.setString('name', name);
         await prefs.setString('email', email);
         await prefs.setString('phone', phone);
 
         if (widget.userType == 'Student') {
-          // Redirect to home for Student
           Navigator.pushReplacementNamed(context, '/home');
         } else {
-          // Redirect to Driver Under Development page
           Navigator.pushReplacementNamed(context, '/driver-development');
         }
       } else {
-        final msg = (jsonDecode(res.body)['message'] ?? 'Login failed') as String;
+        String msg;
+        if (res.statusCode == 401) {
+          msg = 'Invalid email or password';
+        } else {
+          try {
+            final data = jsonDecode(res.body) as Map<String, dynamic>;
+            msg = (data['message'] as String?) ?? 'Login failed, please try again';
+          } catch (_) {
+            msg = 'Login failed, please try again';
+          }
+        }
         setState(() => _error = msg);
       }
     } catch (e) {
       setState(() => _error = 'Error: $e');
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      setState(() => _loading = false);
     }
   }
 
@@ -102,7 +108,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(showSignup ? '${widget.userType} Signup' : '${widget.userType} Login'),
+        title: Text(showSignup
+            ? '${widget.userType} Signup'
+            : '${widget.userType} Login'),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -132,20 +140,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email),
+                            decoration: InputDecoration(
+                              labelText:
+                                  isStudent ? 'MUJ Outlook' : 'Email',
+                              prefixIcon: const Icon(Icons.email),
                             ),
                             keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordCtrl,
-                            decoration: const InputDecoration(
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock),
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscurePassword =
+                                        !_obscurePassword),
+                              ),
                             ),
-                            obscureText: true,
                           ),
                           const SizedBox(height: 16),
                           Align(
@@ -163,7 +182,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    child: CircularProgressIndicator(color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white),
                                   )
                                 : const Text('Login'),
                           ),
@@ -178,7 +198,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 16),
                           TextButton(
                             onPressed: () => setState(() => showSignup = true),
-                            child: const Text('Don’t have an account? Sign up'),
+                            child: const Text(
+                                'Don’t have an account? Sign up'),
                           ),
                         ],
                       ),
